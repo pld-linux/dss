@@ -1,5 +1,7 @@
 # TODO
 # - merge dstreamserv.spec
+%include    /usr/lib/rpm/macros.perl
+
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
@@ -16,6 +18,7 @@ Patch2:		optflags.patch
 Patch3:		compile.patch
 URL:		http://dss.macosforge.org/
 BuildRequires:	libstdc++-devel
+BuildRequires:	rpm-perlprov >= 4.1-13
 BuildRequires:	rpmbuild(macros) >= 1.228
 Requires(post,preun):	/sbin/chkconfig
 Requires(postun):	/usr/sbin/groupdel
@@ -218,6 +221,8 @@ if [ "$1" = "1" ]; then
 	Default admin username/password is root/pld. Set a password for it or, better
 	delete it and create new admin username and password (using qtpasswd)
 
+	Access admin interface at:
+	http://localhost:1220/
 	EOF
 fi
 
