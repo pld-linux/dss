@@ -1,0 +1,39 @@
+- QTBroadcaster Requires a target ip address, a source movie, one or
+  more source hint track ids in movie, and an initial port. Every packet
+  referenced by the hint track(s) is broadcasted to the specified ip
+  address.
+
+- QTFileInfo Requires a movie name. Displays each track id, name,
+  create date, and mod date. If the track is a hint track, additional
+  information is displayed: the total rtp bytes and packets, the average
+  bit rate and packet size, and the total header percentage of the
+  stream.
+
+- QTFileTest Requires a movie name. Parses the Movie Header Atom and
+  displays a trace of the output.
+
+- QTRTPFileTest Requires a movie and a hint track id in the movie.
+  Displays the RTP header (TransmitTime, Cookie, SeqNum, and TimeStamp)
+  for each packet.
+
+- QTRTPGen Requires a movie and a hint track id. Displays the number
+  of packets in each hint track sample and writes the RTP packets to
+  file "track.cache"
+
+- QTSampleLister Requires a movie and a track id. Displays track media
+  sample number, media time, Data offset, and sample size for each
+  sample in the track.
+
+- QTSDPGen Requires a list of 1 or more movies. Displays the SDP
+  information for all of the hinted tracks in each movie. Use -f to save
+  the SDP information to the file [movie].sdp in the same directory as
+  the source movie.
+
+- QTTrackInfo Requires a movie, sample table atom type, and track id.
+  Displays the information in the sample table atom of the specified
+  track. Supports "stco", "stsc", "stsz", "stts" as the atom type.
+
+Example: "./QTTrackInfo -T stco /movies/mystery.mov 3" dumps the chunk
+offset sample table in track 3.
+
+- StreamingLoadTool

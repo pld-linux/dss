@@ -3,16 +3,17 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.6
+Release:	0.8
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
 # Source0-md5:	ca676691db8417d05121699c0ca3d549
+Source1:	%{name}.init
+Source2:	README.utils
 Patch0:		%{name}.patch
 Patch1:		%{name}-x86_64.patch
 Patch2:		optflags.patch
 Patch3:		compile.patch
-Source1:	%{name}.init
 URL:		http://dss.macosforge.org/
 BuildRequires:	libstdc++-devel
 BuildRequires:	rpmbuild(macros) >= 1.228
@@ -68,50 +69,12 @@ network is usually configured to allow:
 
 - RTP datagrams to and from the proxy to the outside
 
-%package Utils
+%package utils
 Summary:	Apple's Darwin Streaming Server Movie inspection utilities
 Group:		Applications
 
-%description Utils
-- QTBroadcaster Requires a target ip address, a source movie, one or
-  more source hint track ids in movie, and an initial port. Every packet
-  referenced by the hint track(s) is broadcasted to the specified ip
-  address.
-
-- QTFileInfo Requires a movie name. Displays each track id, name,
-  create date, and mod date. If the track is a hint track, additional
-  information is displayed: the total rtp bytes and packets, the average
-  bit rate and packet size, and the total header percentage of the
-  stream.
-
-- QTFileTest Requires a movie name. Parses the Movie Header Atom and
-  displays a trace of the output.
-
-- QTRTPFileTest Requires a movie and a hint track id in the movie.
-  Displays the RTP header (TransmitTime, Cookie, SeqNum, and TimeStamp)
-  for each packet.
-
-- QTRTPGen Requires a movie and a hint track id. Displays the number
-  of packets in each hint track sample and writes the RTP packets to
-  file "track.cache"
-
-- QTSampleLister Requires a movie and a track id. Displays track media
-  sample number, media time, Data offset, and sample size for each
-  sample in the track.
-
-- QTSDPGen Requires a list of 1 or more movies. Displays the SDP
-  information for all of the hinted tracks in each movie. Use -f to save
-  the SDP information to the file [movie].sdp in the same directory as
-  the source movie.
-
-- QTTrackInfo Requires a movie, sample table atom type, and track id.
-  Displays the information in the sample table atom of the specified
-  track. Supports "stco", "stsc", "stsz", "stts" as the atom type.
-
-Example: "./QTTrackInfo -T stco /movies/mystery.mov 3" dumps the chunk
-offset sample table in track 3.
-
-- StreamingLoadTool
+%description utils
+Apple's Darwin Streaming Server Movie inspection utilities.
 
 %package samples
 Summary:	Darwin Streaming Server - samples
@@ -131,16 +94,17 @@ Przykładowe pliki do Darwin Streaming Servera.
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
+cp -p %{SOURCE2} .
 
 # patch streamingadminserver.pl
 %{__sed} -i.bak -e  '
-	s|/''usr/local/movies|%{_localstatedir}/lib/%{name}/movies|g
+	s|/''usr/local/movies|/var/lib/%{name}/movies|g
 	s|/''usr/local/sbin/StreamingServerModules|%{_libdir}/%{name}/|g
 	s|/''usr/local/|%{_prefix}/|g
 	s|/''etc/streaming|%{_sysconfdir}/%{name}|g
 	s|/var/streaming/AdminHtml|%{_datadir}/%{name}/AdminHtml|g
-	s|/var/streaming/logs|%{_localstatedir}/log/%{name}|g
-	s|/var/streaming/|%{_localstatedir}/lib/%{name}/|g
+	s|/var/streaming/logs|/var/log/%{name}|g
+	s|/var/streaming/|/var/lib/%{name}/|g
 '	DSS_MakeRoot streamingserver.xml-POSIX \
 	WebAdmin/src/streamingadminserver.pl \
 	WebAdmin/WebAdminHtml/adminprotocol-lib.pl
@@ -149,22 +113,22 @@ Przykładowe pliki do Darwin Streaming Servera.
 %{__sed} -i -e  '
 	s|/Library/QuickTimeStreaming/Config/|%{_sysconfdir}/%{name}/|g
 	s|/Library/QuickTimeStreaming/Modules|%{_libdir}/%{name}|g
-	s|/Library/QuickTimeStreaming/Movies|%{_localstatedir}/lib/%{name}/movies|g
-	s|/Library/QuickTimeStreaming/Playlists|%{_localstatedir}/lib/%{name}/playlists|g
-	s|/Library/QuickTimeStreaming/Logs|%{_localstatedir}/log/%{name}|g
+	s|/Library/QuickTimeStreaming/Movies|/var/lib/%{name}/movies|g
+	s|/Library/QuickTimeStreaming/Playlists|/var/lib/%{name}/playlists|g
+	s|/Library/QuickTimeStreaming/Logs|/var/log/%{name}|g
 	s|/Library/QuickTimeStreaming/Docs|%{_docdir}/%{name}-%{version}|g
 	s|QuickTimeStreamingServer|DarwinStreamingServer|g
 ' Documentation/man/qtss/*
 
 cat > defaultPaths.h << 'EOF'
 #define DEFAULTPATHS_DIRECTORY_SEPARATOR	"/"
-#define DEFAULTPATHS_ROOT_DIR			"%{_localstatedir}/lib/%{name}/"
+#define DEFAULTPATHS_ROOT_DIR			"/var/lib/%{name}/"
 #define DEFAULTPATHS_ETC_DIR			"%{_sysconfdir}/%{name}/"
 #define DEFAULTPATHS_ETC_DIR_OLD		"%{_sysconfdir}/"
 #define DEFAULTPATHS_SSM_DIR			"%{_libdir}/%{name}/"
-#define DEFAULTPATHS_LOG_DIR			"%{_localstatedir}/log/%{name}/"
-#define DEFAULTPATHS_PID_DIR			"%{_localstatedir}/run/"
-#define DEFAULTPATHS_MOVIES_DIR			"%{_localstatedir}/lib/%{name}/movies/"
+#define DEFAULTPATHS_LOG_DIR			"/var/log/%{name}/"
+#define DEFAULTPATHS_PID_DIR			"/var/run/"
+#define DEFAULTPATHS_MOVIES_DIR			"/var/lib/%{name}/movies/"
 EOF
 
 %build
@@ -178,11 +142,27 @@ jobs=$(echo %{_smp_mflags} | cut -dj -f2)
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT{/etc/rc.d/init.d,/var/lib/%{name}}
+install -d $RPM_BUILD_ROOT{/etc/rc.d/init.d,/var/lib/%{name},%{_mandir}/man{1,8}}
 ./DSS_MakeRoot \
 	$RPM_BUILD_ROOT
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+
+# utils
+install -p QTFileTools/QTBroadcaster.tproj/QTBroadcaster $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTFileInfo.tproj/QTFileInfo $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTFileTest.tproj/QTFileTest $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTRTPFileTest.tproj/QTRTPFileTest $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTRTPGen.tproj/QTRTPGen $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTSampleLister.tproj/QTSampleLister $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTSDPGen.tproj/QTSDPGen $RPM_BUILD_ROOT%{_bindir}
+install -p QTFileTools/QTTrackInfo.tproj/QTTrackInfo $RPM_BUILD_ROOT%{_bindir}
+
+# modules
+install -p APIModules/QTSSRawFileModule.bproj/QTSSRawFileModule $RPM_BUILD_ROOT%{_libdir}/%{name}
+
+# config
+cp -a qtaccess $RPM_BUILD_ROOT%{_sysconfdir}/%{name}
 
 # Create our default admin user and remove Apple's
 # Default login is root/pld -- please change it!
@@ -196,8 +176,23 @@ $qtpasswd -F -d 'aGFja21l'
 mv $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/relayconfig.xml{-Sample,}
 rm $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/streamingserver.xml-sample
 
+# streamingadminserver
+cp -a WebAdmin/streamingadminserver.pem $RPM_BUILD_ROOT%{_sysconfdir}/%{name}
+
+# doc
+cp -a Documentation/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
+cp -a Documentation/man/qtss/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
+cp -a Documentation/man/qtss/createuserstreamingdir.8 $RPM_BUILD_ROOT%{_mandir}/man8
+cp -a Documentation/man/qtss/QuickTimeStreamingServer.8 $RPM_BUILD_ROOT%{_mandir}/man8/DarwinStreamingServer.8
+cp -a Documentation/man/qtss/streamingadminserver.pl.8 $RPM_BUILD_ROOT%{_mandir}/man8
 rm $RPM_BUILD_ROOT/var/lib/%{name}/3rdPartyAcknowledgements.rtf
 rm $RPM_BUILD_ROOT/var/lib/%{name}/readme.txt
+
+# provide ghost logs...
+touch $RPM_BUILD_ROOT/var/log/%{name}/Error.log
+touch $RPM_BUILD_ROOT/var/log/%{name}/StreamingServer.log
+touch $RPM_BUILD_ROOT/var/log/%{name}/mp3_access.log
+touch $RPM_BUILD_ROOT/var/log/%{name}/server_status
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -209,6 +204,14 @@ rm -rf $RPM_BUILD_ROOT
 %post
 /sbin/chkconfig --add %{name}
 %service %{name} restart
+
+if [ "$1" = "1" ]; then
+	%banner %{name} -e <<-EOF
+	Default admin username/password is root/pld. Set a password for it or, better
+	delete it and create new admin username and password (using qtpasswd)
+
+	EOF
+fi
 
 %preun
 if [ "$1" = "0" ]; then
@@ -246,6 +249,8 @@ fi
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/relayconfig.xml
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingloadtool.conf
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingserver.xml
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/qtaccess
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingadminserver.pem
 
 %attr(754,root,root) /etc/rc.d/init.d/dss
 %attr(755,root,root) %{_bindir}/MP3Broadcaster
@@ -257,12 +262,23 @@ fi
 %attr(755,root,root) %{_sbindir}/DarwinStreamingServer
 %attr(755,root,root) %{_sbindir}/streamingadminserver.pl
 
+%{_mandir}/man1/*
+%{_mandir}/man8/*
+
 %dir %{_libdir}/%{name}
 %attr(755,root,root) %{_libdir}/%{name}/QTSSHomeDirectoryModule
 %attr(755,root,root) %{_libdir}/%{name}/QTSSRefMovieModule
 
+%attr(755,root,root) %{_libdir}/dss/QTSSRawFileModule
+
 %dir /var/lib/%{name}
 %dir /var/lib/%{name}/movies
+
+%dir /var/log/%{name}
+%attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/Error.log
+%attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/StreamingServer.log
+%attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/mp3_access.log
+%attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/server_status
 
 # admin server (subpackage?)
 %dir %{_datadir}/%{name}
@@ -273,6 +289,18 @@ fi
 %{_datadir}/%{name}/AdminHtml/*.html
 %{_datadir}/%{name}/AdminHtml/*.pl
 %attr(755,root,root) %{_datadir}/%{name}/AdminHtml/*.cgi
+
+%files utils
+%defattr(644,root,root,755)
+%doc README.utils
+%attr(755,root,root) %{_bindir}/QTBroadcaster
+%attr(755,root,root) %{_bindir}/QTFileInfo
+%attr(755,root,root) %{_bindir}/QTFileTest
+%attr(755,root,root) %{_bindir}/QTRTPFileTest
+%attr(755,root,root) %{_bindir}/QTRTPGen
+%attr(755,root,root) %{_bindir}/QTSDPGen
+%attr(755,root,root) %{_bindir}/QTSampleLister
+%attr(755,root,root) %{_bindir}/QTTrackInfo
 
 %files samples
 %defattr(644,root,root,755)
