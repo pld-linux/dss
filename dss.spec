@@ -1,7 +1,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.3
+Release:	0.4
 License:	Apple Public Source License
 Group:		Applications
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -115,7 +115,7 @@ Sample files for the Darwin Streaming Server.
 	s|/''usr/local/sbin/StreamingServerModules|%{_libdir}/%{name}/|g
 	s|/''usr/local/|%{_prefix}/|g
 	s|/''etc/streaming|%{_sysconfdir}/%{name}|g
-	s|/var/streaming/logs/|%{_localstatedir}/log/%{name}/|g
+	s|/var/streaming/logs|%{_localstatedir}/log/%{name}|g
 	s|/var/streaming/|%{_localstatedir}/lib/%{name}/|g
 '	DSS_MakeRoot streamingserver.xml-POSIX \
 	WebAdmin/src/streamingadminserver.pl \
@@ -154,7 +154,7 @@ jobs=$(echo %{_smp_mflags} | cut -dj -f2)
 
 %install
 rm -rf $RPM_BUILD_ROOT
-install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
+install -d $RPM_BUILD_ROOT{/etc/rc.d/init.d,/var/lib/%{name}}
 ./DSS_MakeRoot \
 	$RPM_BUILD_ROOT
 
