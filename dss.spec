@@ -3,9 +3,9 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.4
+Release:	0.6
 License:	Apple Public Source License
-Group:		Applications
+Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
 # Source0-md5:	ca676691db8417d05121699c0ca3d549
 Patch0:		%{name}.patch
@@ -25,6 +25,9 @@ Requires(pre):	/usr/sbin/useradd
 Requires:	rc-scripts
 Provides:	group(qtss)
 Provides:	user(qtss)
+Obsoletes:	DSS
+Obsoletes:	dstreamserv
+Obsoletes:	dstreamsrv
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -37,6 +40,10 @@ later users. With its combination of industry-standard streaming
 protocols and cutting-edge compression technologies, QuickTime
 delivers perfectly synchronized audio and video streams ideal for
 Internet video and live events.
+
+%description -l pl.UTF-8
+Serwer strumieni pozwala wysyłać strumienie danych QuickTime do
+klientów w Internecie przy użyciu protokołów RTP i RTSP.
 
 %package Proxy
 Summary:	Apple's Darwin Streaming Proxy
@@ -62,7 +69,7 @@ network is usually configured to allow:
 
 %package Utils
 Summary:	Apple's Darwin Streaming Server Movie inspection utilities
-Group:		Daemons
+Group:		Applications
 
 %description Utils
 - QTBroadcaster Requires a target ip address, a source movie, one or
@@ -109,6 +116,7 @@ offset sample table in track 3.
 Summary:	Darwin Streaming Server - samples
 Summary(pl.UTF-8):	Przykłady do Darwin Streaming Servera
 Group:		Networking/Daemons
+Obsoletes:	dstreamserv-samples
 
 %description samples
 Sample files for Streaming Server.
@@ -129,6 +137,7 @@ Przykładowe pliki do Darwin Streaming Servera.
 	s|/''usr/local/sbin/StreamingServerModules|%{_libdir}/%{name}/|g
 	s|/''usr/local/|%{_prefix}/|g
 	s|/''etc/streaming|%{_sysconfdir}/%{name}|g
+	s|/var/streaming/AdminHtml|%{_datadir}/%{name}/AdminHtml|g
 	s|/var/streaming/logs|%{_localstatedir}/log/%{name}|g
 	s|/var/streaming/|%{_localstatedir}/lib/%{name}/|g
 '	DSS_MakeRoot streamingserver.xml-POSIX \
@@ -254,8 +263,15 @@ fi
 %dir /var/lib/%{name}
 %dir /var/lib/%{name}/movies
 
-# admin html (subpackage?)
-/var/lib/%{name}/AdminHtml
+# admin server (subpackage?)
+%dir %{_datadir}/%{name}
+%dir %{_datadir}/%{name}/AdminHtml
+%{_datadir}/%{name}/AdminHtml/html_en
+%{_datadir}/%{name}/AdminHtml/images
+%{_datadir}/%{name}/AdminHtml/includes
+%{_datadir}/%{name}/AdminHtml/*.html
+%{_datadir}/%{name}/AdminHtml/*.pl
+%attr(755,root,root) %{_datadir}/%{name}/AdminHtml/*.cgi
 
 %files samples
 %defattr(644,root,root,755)
