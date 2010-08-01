@@ -106,24 +106,24 @@ Sample files for the Darwin Streaming Server.
 %patch3 -p1
 
 # patch streamingadminserver.pl
-%{__sed} -i -e  "s|/usr/local/|/usr/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/etc/streaming/|/etc/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/var/streaming/logs/|/var/log/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/var/streaming/|/var/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/usr/local/|/usr/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i -e  "s|/usr/local/|%{_prefix}/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i -e  "s|/etc/streaming/|%{_sysconfdir}/dss/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i -e  "s|/var/streaming/logs/|%{_localstatedir}/log/dss/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i -e  "s|/var/streaming/|%{_localstatedir}/lib/dss/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i -e  "s|/usr/local/|%{_prefix}/|g" WebAdmin/src/streamingadminserver.pl
 
 # patch manpages
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Config/|/etc/dss/|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Modules|/usr/lib/dss|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Movies|/var/dss/movies|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Playlists|/var/dss/playlists|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Logs|/var/log/dss|g" Documentation/man/qtss/*
+%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Config/|%{_sysconfdir}/dss/|g" Documentation/man/qtss/*
+%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Modules|%{_libdir}/dss|g" Documentation/man/qtss/*
+%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Movies|%{_localstatedir}/dss/movies|g" Documentation/man/qtss/*
+%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Playlists|%{_localstatedir}/lib/dss/playlists|g" Documentation/man/qtss/*
+%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Logs|%{_localstatedir}/log/dss|g" Documentation/man/qtss/*
 %{__sed} -i -e  "s|/Library/QuickTimeStreaming/Docs|%{_docdir}/%{name}-%{version}|g" Documentation/man/qtss/*
 %{__sed} -i -e  "s|QuickTimeStreamingServer|DarwinStreamingServer|g" Documentation/man/qtss/*
 
 cat > defaultPaths.h << EOF
 #define DEFAULTPATHS_DIRECTORY_SEPARATOR	"/"
-#define DEFAULTPATHS_ROOT_DIR			"%{_localstatedir}/dss/"
+#define DEFAULTPATHS_ROOT_DIR			"%{_localstatedir}/lib/dss/"
 #define DEFAULTPATHS_ETC_DIR			"%{_sysconfdir}/dss/"
 #define DEFAULTPATHS_ETC_DIR_OLD		"%{_sysconfdir}/"
 #define DEFAULTPATHS_SSM_DIR			"%{_libdir}/dss/"
