@@ -3,7 +3,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.8
+Release:	0.9
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -50,6 +50,7 @@ klientów w Internecie przy użyciu protokołów RTP i RTSP.
 %package Proxy
 Summary:	Apple's Darwin Streaming Proxy
 Group:		Daemons
+Requires:	%{name} = %{version}-%{release}
 
 %description Proxy
 The Darwin Streaming Proxy is an application specific proxy which
@@ -72,6 +73,7 @@ network is usually configured to allow:
 %package utils
 Summary:	Apple's Darwin Streaming Server Movie inspection utilities
 Group:		Applications
+Requires:	%{name} = %{version}-%{release}
 
 %description utils
 Apple's Darwin Streaming Server Movie inspection utilities.
@@ -80,6 +82,7 @@ Apple's Darwin Streaming Server Movie inspection utilities.
 Summary:	Darwin Streaming Server - samples
 Summary(pl.UTF-8):	Przykłady do Darwin Streaming Servera
 Group:		Networking/Daemons
+Requires:	%{name} = %{version}-%{release}
 Obsoletes:	dstreamserv-samples
 
 %description samples
