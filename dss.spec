@@ -14,6 +14,7 @@ Patch2:		optflags.patch
 Patch3:		compile.patch
 Source1:	%{name}.init
 URL:		http://dss.macosforge.org/
+BuildRequires:	libstdc++-devel
 BuildRequires:	rpmbuild(macros) >= 1.228
 Requires(post,preun):	/sbin/chkconfig
 Requires(postun):	/usr/sbin/groupdel
