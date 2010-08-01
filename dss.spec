@@ -1,3 +1,5 @@
+# TODO
+# - merge dstreamserv.spec
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
@@ -14,7 +16,15 @@ Source1:	%{name}.init
 URL:		http://dss.macosforge.org/
 BuildRequires:	rpmbuild(macros) >= 1.228
 Requires(post,preun):	/sbin/chkconfig
+Requires(postun):	/usr/sbin/groupdel
+Requires(postun):	/usr/sbin/userdel
+Requires(pre):	/bin/id
+Requires(pre):	/usr/bin/getgid
+Requires(pre):	/usr/sbin/groupadd
+Requires(pre):	/usr/sbin/useradd
 Requires:	rc-scripts
+Provides:	group(qtss)
+Provides:	user(qtss)
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -95,12 +105,16 @@ offset sample table in track 3.
 
 - StreamingLoadTool
 
-%package Samples
-Summary:	Apple's Darwin Streaming Samples
-Group:		Daemons
+%package samples
+Summary:	Darwin Streaming Server - samples
+Summary(pl.UTF-8):	Przykłady do Darwin Streaming Servera
+Group:		Networking/Daemons
 
-%description Samples
-Sample files for the Darwin Streaming Server.
+%description samples
+Sample files for Streaming Server.
+
+%description samples -l pl.UTF-8
+Przykładowe pliki do Darwin Streaming Servera.
 
 %prep
 %setup -q -n DarwinStreamingSrvr%{version}-Source
@@ -178,6 +192,10 @@ rm $RPM_BUILD_ROOT/var/lib/%{name}/readme.txt
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+%pre
+%groupadd -f -g 148 qtss
+%useradd -g qtss -d /tmp -u 148 -s /bin/false qtss
+
 %post
 /sbin/chkconfig --add %{name}
 %service %{name} restart
@@ -186,6 +204,12 @@ rm -rf $RPM_BUILD_ROOT
 if [ "$1" = "0" ]; then
 	%service -q %{name} stop
 	/sbin/chkconfig --del %{name}
+fi
+
+%postun
+if [ "$1" = "0" ]; then
+	%userremove qtss
+	%groupremove qtss
 fi
 
 %files
@@ -228,9 +252,11 @@ fi
 %attr(755,root,root) %{_libdir}/%{name}/QTSSRefMovieModule
 
 %dir /var/lib/%{name}
-
-# sample movies
-/var/lib/%{name}/movies
+%dir /var/lib/%{name}/movies
 
 # admin html (subpackage?)
 /var/lib/%{name}/AdminHtml
+
+%files samples
+%defattr(644,root,root,755)
+/var/lib/%{name}/movies/*
