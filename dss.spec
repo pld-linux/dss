@@ -6,6 +6,8 @@ License:	Apple Public Source License
 Group:		Applications
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
 # Source0-md5:	ca676691db8417d05121699c0ca3d549
+Patch0:		%{name}.patch
+Patch1:		%{name}-x86_64.patch
 URL:		http://dss.macosforge.org/
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
@@ -96,6 +98,8 @@ Sample files for the Darwin Streaming Server.
 
 %prep
 %setup -q -n DarwinStreamingSrvr%{version}-Source
+%patch0 -p1
+%patch1 -p1
 
 # patch streamingadminserver.pl
 %{__sed} -i -e  "s|/usr/local/|/usr/|g" WebAdmin/src/streamingadminserver.pl

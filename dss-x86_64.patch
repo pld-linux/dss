@@ -1,0 +1,4051 @@
+http://lists.apple.com/archives/streaming-server-dev/2008/May/msg00050.html
+http://www.abrahamsson.com/dss-6.0.3-x86_64.patch
+
+diff -ur DarwinStreamingSrvr6.0.3-Source/APICommonCode/QTSSModuleUtils.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APICommonCode/QTSSModuleUtils.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APICommonCode/QTSSModuleUtils.cpp	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APICommonCode/QTSSModuleUtils.cpp	2008-05-30 23:30:13.000000000 +0200
+@@ -29,6 +29,7 @@
+                     
+ */
+ 
++#include <byteswap.h>
+ #include "QTSSModuleUtils.h"
+ #include "QTSS_Private.h"
+ 
+@@ -282,7 +283,7 @@
+         RTPMetaInfoPacket::FieldName* theFieldName = (RTPMetaInfoPacket::FieldName*)theHeader.Ptr;
+         ::memcpy (&fieldNameValue, theFieldName, sizeof(UInt16));
+ 
+-        RTPMetaInfoPacket::FieldIndex theFieldIndex = RTPMetaInfoPacket::GetFieldIndexForName(ntohs(fieldNameValue));
++        RTPMetaInfoPacket::FieldIndex theFieldIndex = RTPMetaInfoPacket::GetFieldIndexForName(bswap_16(fieldNameValue));
+         
+         //
+         // This field is not supported (not in the field ID array), so
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSAdminModule/AdminElementNode.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSAdminModule/AdminElementNode.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSAdminModule/AdminElementNode.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSAdminModule/AdminElementNode.cpp	2008-05-30 23:06:56.000000000 +0200
+@@ -934,7 +934,7 @@
+         fFieldOSRefPtrs[index] = NEW OSRef(); Assert(fFieldOSRefPtrs[index] != NULL); ElementNode_InsertPtr(fFieldOSRefPtrs[index],"ElementNode::GetOSRef NEW OSRef() fFieldOSRefPtrs ");   
+         GetNameSPL(index,&theName); Assert(theName.Len != 0);
+         //qtss_printf("ElementNode::GetOSRef index = %"_S32BITARG_" name = %s \n", index, theName.Ptr);
+-        fFieldOSRefPtrs[index]->Set(theName,(void *) index);
++        fFieldOSRefPtrs[index]->Set(theName,(void *)intptr_t(index));
+         if (0 != theName.Len && NULL != theName.Ptr) //return the ptr else NULL
+             resultPtr = fFieldOSRefPtrs[index];
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSFileModule/QTSSFileModule.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSFileModule/QTSSFileModule.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSFileModule/QTSSFileModule.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSFileModule/QTSSFileModule.cpp	2008-05-30 23:30:28.000000000 +0200
+@@ -31,6 +31,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include <string.h>
+ 
+ #include "QTSSFileModule.h"
+@@ -190,7 +191,7 @@
+ 
+ inline UInt16 GetPacketSequenceNumber(void * packetDataPtr)
+ {
+-    return ntohs( ((UInt16*)packetDataPtr)[1]);
++    return bswap_16( ((UInt16*)packetDataPtr)[1]);
+ }
+ 
+ inline UInt16 GetLastPacketSeqNum(QTSS_Object stream)
+@@ -218,18 +219,18 @@
+ 
+ inline void SetPacketSequenceNumber(UInt16 newSequenceNumber, void * packetDataPtr)
+ {
+-    ((UInt16*)packetDataPtr)[1] = htons(newSequenceNumber);
++    ((UInt16*)packetDataPtr)[1] = bswap_16(newSequenceNumber);
+ }
+ 
+ 
+ inline UInt32 GetPacketTimeStamp(void * packetDataPtr)
+ {
+-    return ntohl( ((UInt32*)packetDataPtr)[1]);
++    return bswap_32( ((UInt32*)packetDataPtr)[1]);
+ }
+ 
+ inline void SetPacketTimeStamp(UInt32 newTimeStamp, void * packetDataPtr)
+ {
+-    ((UInt32*)packetDataPtr)[1] = htonl(newTimeStamp);
++    ((UInt32*)packetDataPtr)[1] = bswap_32(newTimeStamp);
+ }
+ 
+ inline UInt32 CalculatePauseTimeStamp(UInt32 timescale, SInt64 totalPauseTime, UInt32 currentTimeStamp)
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSHttpFileModule/QTSSHttpFileModule.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSHttpFileModule/QTSSHttpFileModule.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSHttpFileModule/QTSSHttpFileModule.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSHttpFileModule/QTSSHttpFileModule.cpp	2008-05-30 23:31:23.000000000 +0200
+@@ -30,6 +30,7 @@
+ 
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <unistd.h>
+ #include <dirent.h>
+ #endif
+@@ -1068,7 +1069,7 @@
+        if( rmra == NULL )
+          return NULL;
+ 
+-       rmraLen = htonl(rmraLen);
++       rmraLen = bswap_32(rmraLen);
+ 
+        ::memcpy(&rmra[0], &rmraLen, 4);
+        ::memcpy(&rmra[1], "rmra", 4);
+@@ -1076,20 +1077,20 @@
+ 
+        // Make the MOOV
+ 
+-       *moovLen = ntohl(rmraLen) + 8;
++       *moovLen = bswap_32(rmraLen) + 8;
+        moov = NEW UInt32[*moovLen];
+        if( moov == NULL )
+          return NULL;
+ 
+-       *moovLen = htonl(*moovLen);
++       *moovLen = bswap_32(*moovLen);
+ 
+        ::memcpy(&moov[0], moovLen, 4);
+        ::memcpy(&moov[1], "moov", 4);
+-       ::memcpy((char *)moov + 8, rmra, ntohl(rmraLen));
++       ::memcpy((char *)moov + 8, rmra, bswap_32(rmraLen));
+ 
+        delete rmra;
+ 
+-       *moovLen = ntohl(*moovLen);
++       *moovLen = bswap_32(*moovLen);
+ 
+        // moov needs to be deleted by the calling function
+        return moov;
+@@ -1099,8 +1100,8 @@
+ {
+       UInt32 *rdrf, rdrfLen, *rmdr, rmdrLen, *rmda, zero, size;
+ 
+-      zero = htonl(0); // Okay, this is silly ???
+-      rate = htonl(rate);
++      zero = bswap_32(0); // Okay, this is silly ???
++      rate = bswap_32(rate);
+ 
+       // Make the RDRF
+       size = ::strlen(url) + 1;
+@@ -1109,8 +1110,8 @@
+       if( rdrf == NULL )
+          return NULL;
+ 
+-      rdrfLen = htonl(rdrfLen);
+-      size = htonl(size);
++      rdrfLen = bswap_32(rdrfLen);
++      size = bswap_32(size);
+ 
+       ::memcpy(&rdrf[0], &rdrfLen, 4);
+       ::memcpy(&rdrf[1], "rdrf", 4);
+@@ -1125,7 +1126,7 @@
+       if( rmdr == NULL )
+          return NULL;
+ 
+-      rmdrLen = htonl(rmdrLen);
++      rmdrLen = bswap_32(rmdrLen);
+       
+       ::memcpy(&rmdr[0], &rmdrLen, 4);
+       ::memcpy(&rmdr[1], "rmdr", 4);
+@@ -1134,22 +1135,22 @@
+ 
+       // Make the RMDA
+ 
+-      *rmdaLen = ntohl(rdrfLen) + ntohl(rmdrLen) + 8;
++      *rmdaLen = bswap_32(rdrfLen) + bswap_32(rmdrLen) + 8;
+       rmda = NEW UInt32[*rmdaLen];
+       if( rmda == NULL )
+          return NULL;
+ 
+-      *rmdaLen = htonl(*rmdaLen);
++      *rmdaLen = bswap_32(*rmdaLen);
+ 
+       ::memcpy(&rmda[0], rmdaLen, 4);
+       ::memcpy(&rmda[1], "rmda", 4);
+-      ::memcpy((char *)rmda + 8, rmdr, ntohl(rmdrLen));
+-      ::memcpy((char *)rmda + 8 + ntohl(rmdrLen), rdrf, ntohl(rdrfLen));
++      ::memcpy((char *)rmda + 8, rmdr, bswap_32(rmdrLen));
++      ::memcpy((char *)rmda + 8 + bswap_32(rmdrLen), rdrf, bswap_32(rdrfLen));
+ 
+       delete rdrf;
+       delete rmdr;
+ 
+-      *rmdaLen = ntohl(*rmdaLen);
++      *rmdaLen = bswap_32(*rmdaLen);
+ 
+       // rmda needs to be deleted by the calling function
+       return rmda;
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSProxyModule/QTSSProxyModule.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSProxyModule/QTSSProxyModule.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSProxyModule/QTSSProxyModule.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSProxyModule/QTSSProxyModule.cpp	2008-05-30 23:31:46.000000000 +0200
+@@ -36,6 +36,7 @@
+ #ifndef __Win32__
+ //
+ // For gethostbyname
++#include <byteswap.h>
+ #include <netdb.h>
+ #endif
+ 
+@@ -357,7 +358,7 @@
+         
+         UInt32 theIPAddr = 0;
+         if (theHostent != NULL)
+-            theIPAddr = ntohl(*(UInt32*)(theHostent->h_addr_list[0]));
++            theIPAddr = bswap_32(*(UInt32*)(theHostent->h_addr_list[0]));
+         else
+             theIPAddr = SocketUtils::ConvertStringToAddr(theDNSName);
+             
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/QTSSReflectorModule.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/QTSSReflectorModule.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/QTSSReflectorModule.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/QTSSReflectorModule.cpp	2008-05-30 23:32:02.000000000 +0200
+@@ -31,6 +31,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include "QTSSReflectorModule.h"
+ #include "QTSSModuleUtils.h"
+ #include "ReflectorSession.h"
+@@ -654,7 +655,7 @@
+ 
+     UInt16  packetDataLen;
+     memcpy(&packetDataLen,&packetData[2],2);
+-    packetDataLen = ntohs(packetDataLen);
++    packetDataLen = bswap_16(packetDataLen);
+     
+     char*   rtpPacket = &packetData[4];
+     
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorSession.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorSession.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorSession.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorSession.cpp	2008-05-30 23:32:26.000000000 +0200
+@@ -32,6 +32,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "ReflectorSession.h"
+ #include "RTCPPacket.h"
+ #include "SocketUtils.h"
+@@ -283,7 +284,7 @@
+         char theIPAddrBuf[20];
+         StrPtrLen theIPAddr(theIPAddrBuf, 20);
+         struct in_addr theAddr;
+-        theAddr.s_addr = htonl(fSourceInfo->GetStreamInfo(0)->fSrcIPAddr);
++        theAddr.s_addr = bswap_32(fSourceInfo->GetStreamInfo(0)->fSrcIPAddr);
+         SocketUtils::ConvertAddrToString(theAddr, &theIPAddr);
+         fFormatter.Put(theIPAddr);
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorStream.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorStream.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorStream.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorStream.cpp	2008-05-30 23:32:33.000000000 +0200
+@@ -31,6 +31,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include "ReflectorStream.h"
+ #include "QTSSModuleUtils.h"
+ #include "OSMemory.h"
+@@ -162,31 +163,31 @@
+     
+     //write the RR (just header + ssrc)
+     UInt32* theRRWriter = (UInt32*)&fReceiverReportBuffer[0];
+-    *theRRWriter = htonl(0x80c90001);
++    *theRRWriter = bswap_32(0x80c90001);
+     theRRWriter++;
+-    *theRRWriter = htonl(theSsrc);
++    *theRRWriter = bswap_32(theSsrc);
+     theRRWriter++;
+ 
+     //SDES length is the length of the CName, plus 2 32bit words, minus 1
+-    *theRRWriter = htonl(0x81ca0000 + (cNameLen >> 2) + 1);
++    *theRRWriter = bswap_32(0x81ca0000 + (cNameLen >> 2) + 1);
+     theRRWriter++;
+-    *theRRWriter = htonl(theSsrc);
++    *theRRWriter = bswap_32(theSsrc);
+     theRRWriter++;
+     ::memcpy(theRRWriter, theTempCName, cNameLen);
+     theRRWriter += cNameLen >> 2;
+     
+     //APP packet format, QTSS specific stuff
+-    *theRRWriter = htonl(0x80cc0008);
++    *theRRWriter = bswap_32(0x80cc0008);
+     theRRWriter++;
+-    *theRRWriter = htonl(theSsrc);
++    *theRRWriter = bswap_32(theSsrc);
+     theRRWriter++;
+-    *theRRWriter = htonl(FOUR_CHARS_TO_INT('Q','T','S','S'));
++    *theRRWriter = bswap_32(FOUR_CHARS_TO_INT('Q','T','S','S'));
+     theRRWriter++;
+-    *theRRWriter = htonl(0);
++    *theRRWriter = bswap_32(0);
+     theRRWriter++;
+-    *theRRWriter = htonl(0x00000004);
++    *theRRWriter = bswap_32(0x00000004);
+     theRRWriter++;
+-    *theRRWriter = htonl(0x6579000c);
++    *theRRWriter = bswap_32(0x6579000c);
+     theRRWriter++;
+     
+     fEyeLocation = theRRWriter;
+@@ -474,11 +475,11 @@
+     
+     UInt32 theEyeCount = this->GetEyeCount();    
+     UInt32* theEyeWriter = fEyeLocation;
+-    *theEyeWriter = htonl(theEyeCount) & 0x7fffffff;//no idea why we do this!
++    *theEyeWriter = bswap_32(theEyeCount) & 0x7fffffff;//no idea why we do this!
+     theEyeWriter++;
+-    *theEyeWriter = htonl(theEyeCount) & 0x7fffffff;
++    *theEyeWriter = bswap_32(theEyeCount) & 0x7fffffff;
+     theEyeWriter++;
+-    *theEyeWriter = htonl(0) & 0x7fffffff;
++    *theEyeWriter = bswap_32(0) & 0x7fffffff;
+     
+     //send the packet to the multicast RTCP addr & port for this stream
+     (void)fSockets->GetSocketB()->SendTo(fDestRTCPAddr, fDestRTCPPort, fReceiverReportBuffer, fReceiverReportSize);
+@@ -707,7 +708,7 @@
+     
+     //The RTP seq number is the second short of the packet
+     UInt16* seqNumPtr = (UInt16*)inPacket->Ptr;
+-    return ntohs(seqNumPtr[1]);
++    return bswap_16(seqNumPtr[1]);
+ }
+ 
+ 
+@@ -1460,7 +1461,7 @@
+         if (theSender == NULL)
+         {   
+             //UInt16* theSeqNumberP = (UInt16*)thePacket->fPacketPtr.Ptr;
+-            //qtss_printf("ReflectorSocket::ProcessPacket no sender found for packet! sequence number=%d\n",ntohs(theSeqNumberP[1]));
++            //qtss_printf("ReflectorSocket::ProcessPacket no sender found for packet! sequence number=%d\n",bswap_16(theSeqNumberP[1]));
+             fFreeQueue.EnQueue(&thePacket->fQueueElem); // don't process the packet
+             done = true;
+             break;
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorStream.h DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorStream.h
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/ReflectorStream.h	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/ReflectorStream.h	2008-05-30 23:32:36.000000000 +0200
+@@ -37,6 +37,7 @@
+ #ifndef _REFLECTOR_STREAM_H_
+ #define _REFLECTOR_STREAM_H_
+ 
++#include <byteswap.h>
+ #include "QTSS.h"
+ 
+ #include "IdleTask.h"
+@@ -121,12 +122,12 @@
+                 
+     UInt32* theSsrcPtr = (UInt32*)fPacketPtr.Ptr;
+     if (isRTCP)// RTCP 
+-        return ntohl(theSsrcPtr[1]); 
++        return bswap_32(theSsrcPtr[1]); 
+             
+     if (fPacketPtr.Len < 12)
+         return 0;
+     
+-    return ntohl(theSsrcPtr[2]);  // RTP SSRC
++    return bswap_32(theSsrcPtr[2]);  // RTP SSRC
+ }
+ 
+ UInt32 ReflectorPacket::GetPacketRTPTime()
+@@ -138,13 +139,13 @@
+         //The RTP timestamp number is the second long of the packet
+         if (fPacketPtr.Ptr == NULL || fPacketPtr.Len < 8)
+             return 0;
+-        timestamp = ntohl( ((UInt32*)fPacketPtr.Ptr)[1]);
++        timestamp = bswap_32( ((UInt32*)fPacketPtr.Ptr)[1]);
+     }
+     else
+     {
+         if (fPacketPtr.Ptr == NULL || fPacketPtr.Len < 20)
+             return 0;
+-        timestamp = ntohl( ((UInt32*)fPacketPtr.Ptr)[4]);
++        timestamp = bswap_32( ((UInt32*)fPacketPtr.Ptr)[4]);
+     }
+     return timestamp;
+ }
+@@ -156,7 +157,7 @@
+    if (fPacketPtr.Ptr == NULL || fPacketPtr.Len < 4 || fIsRTCP)
+         return 0;
+      
+-    UInt16 sequence = ntohs( ((UInt16*)fPacketPtr.Ptr)[1]); //The RTP sequenc number is the second short of the packet
++    UInt16 sequence = bswap_16( ((UInt16*)fPacketPtr.Ptr)[1]); //The RTP sequenc number is the second short of the packet
+     return sequence;
+ }
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RelayOutput.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RelayOutput.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RelayOutput.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RelayOutput.cpp	2008-05-30 23:32:47.000000000 +0200
+@@ -31,6 +31,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include "RelayOutput.h"
+ 
+ #include "OSMemory.h"
+@@ -234,7 +235,7 @@
+     char theIPAddrBuf[20];
+     StrPtrLen theIPAddr(theIPAddrBuf, 20);
+     struct in_addr theAddr;
+-    theAddr.s_addr = htonl(fOutputInfo.fDestAddr);
++    theAddr.s_addr = bswap_32(fOutputInfo.fDestAddr);
+     SocketUtils::ConvertAddrToString(theAddr, &theIPAddr);
+ 
+     // Begin writing the HTML
+@@ -538,14 +539,14 @@
+     StrPtrLen theIPAddr(theIPAddrBuf, 20);
+     
+     struct in_addr theDestAddr;     // output destination address
+-    theDestAddr.s_addr = htonl(fOutputInfo.fDestAddr);
++    theDestAddr.s_addr = bswap_32(fOutputInfo.fDestAddr);
+     SocketUtils::ConvertAddrToString(theDestAddr, &theIPAddr);  
+     
+     theErr = QTSS_SetValue (fRelayOutputObject, sOutputDestAddr, 0, (void*)theIPAddr.Ptr, theIPAddr.Len);
+     Assert(theErr == QTSS_NoErr);
+     
+     struct in_addr theLocalAddr;        // output local address
+-    theLocalAddr.s_addr = htonl(fOutputInfo.fLocalAddr);
++    theLocalAddr.s_addr = bswap_32(fOutputInfo.fLocalAddr);
+     SocketUtils::ConvertAddrToString(theLocalAddr, &theIPAddr); 
+     
+     theErr = QTSS_SetValue (fRelayOutputObject, sOutputLocalAddr, 0, (void*)theIPAddr.Ptr, theIPAddr.Len);
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RelaySession.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RelaySession.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RelaySession.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RelaySession.cpp	2008-05-30 23:33:05.000000000 +0200
+@@ -32,6 +32,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RelaySession.h"
+ #include "QTSSModuleUtils.h"
+ #include "SocketUtils.h"
+@@ -189,14 +190,14 @@
+     StrPtrLen theIPAddr(theIPAddrBuf, 20);
+     
+     struct in_addr theSrcAddr;      // source ip address
+-    theSrcAddr.s_addr = htonl(inInfo->GetStreamInfo(0)->fSrcIPAddr);
++    theSrcAddr.s_addr = bswap_32(inInfo->GetStreamInfo(0)->fSrcIPAddr);
+     SocketUtils::ConvertAddrToString(theSrcAddr, &theIPAddr);   
+     
+     theErr = QTSS_SetValue (fRelaySessionObject, sSourceIPAddr, 0, (void*)theIPAddr.Ptr, theIPAddr.Len);
+     Assert(theErr == QTSS_NoErr);
+     
+     struct in_addr theDestAddr;     // dest (of source) ip address
+-    theDestAddr.s_addr = htonl(inInfo->GetStreamInfo(0)->fDestIPAddr);
++    theDestAddr.s_addr = bswap_32(inInfo->GetStreamInfo(0)->fDestIPAddr);
+     SocketUtils::ConvertAddrToString(theDestAddr, &theIPAddr);
+     
+     theErr = QTSS_SetValue (fRelaySessionObject, sSourceInIPAddr, 0, (void*)theIPAddr.Ptr, theIPAddr.Len);
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RTPSessionOutput.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RTPSessionOutput.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RTPSessionOutput.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RTPSessionOutput.cpp	2008-05-30 23:34:26.000000000 +0200
+@@ -31,6 +31,8 @@
+ */
+ 
+ 
++#include <byteswap.h>
++#include <byteswap.h>
+ #include "RTPSessionOutput.h"
+ #include "ReflectorStream.h"
+ 
+@@ -442,18 +444,18 @@
+     //printf("rtptime offset time =%f in scale =%"_U32BITARG_"\n", rtpTimeFromStart, rtpTimeFromStartInScale );
+ 
+     theReport += 2; // point to the rtp time stamp of "now" synched and scaled in stream time
+-    *theReport = htonl(baseTimeStamp + rtpTimeFromStartInScale); 
++    *theReport = bswap_32(baseTimeStamp + rtpTimeFromStartInScale); 
+     
+     theLen = sizeof(UInt32);                   
+     UInt32 packetCount = 0;
+     (void) QTSS_GetValue(*theStreamPtr, sStreamPacketCountAttr, 0, &packetCount,&theLen);
+     theReport += 1; // point to the rtp packets sent
+-    *theReport = htonl(ntohl(*theReport) * 2); 
++    *theReport = bswap_32(bswap_32(*theReport) * 2); 
+         
+     UInt32 byteCount = 0;
+     (void) QTSS_GetValue(*theStreamPtr, sStreamByteCountAttr, 0, &byteCount,&theLen);
+     theReport += 1; // point to the rtp payload bytes sent
+-    *theReport = htonl(ntohl(*theReport) * 2); 
++    *theReport = bswap_32(bswap_32(*theReport) * 2); 
+         
+     return QTSS_NoErr;
+ }
+@@ -667,7 +669,7 @@
+     
+     //The RTP seq number is the second short of the packet
+     UInt16* seqNumPtr = (UInt16*)inPacket->Ptr;
+-    return ntohs(seqNumPtr[1]);
++    return bswap_16(seqNumPtr[1]);
+ }
+ 
+ void RTPSessionOutput::SetPacketSeqNumber(StrPtrLen* inPacket, UInt16 inSeqNumber)
+@@ -677,7 +679,7 @@
+ 
+     //The RTP seq number is the second short of the packet
+     UInt16* seqNumPtr = (UInt16*)inPacket->Ptr;
+-    seqNumPtr[1] = htons(inSeqNumber);
++    seqNumPtr[1] = bswap_16(inSeqNumber);
+ }
+ 
+ // this routine is not used
+diff -ur DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RTSPSourceInfo.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RTSPSourceInfo.cpp
+--- DarwinStreamingSrvr6.0.3-Source/APIModules/QTSSReflectorModule/RTSPSourceInfo.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/APIModules/QTSSReflectorModule/RTSPSourceInfo.cpp	2008-05-30 23:34:07.000000000 +0200
+@@ -31,6 +31,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include "RTSPSourceInfo.h"
+ #include "StringParser.h"
+ #include "SDPSourceInfo.h"
+@@ -384,7 +385,7 @@
+                     StrPtrLen temp(buff);
+                 
+                     struct in_addr theIPAddr;
+-                    theIPAddr.s_addr = htonl(ipAddr);
++                    theIPAddr.s_addr = bswap_32(ipAddr);
+                     SocketUtils::ConvertAddrToString(theIPAddr, &temp);
+                    
+                     qtss_sprintf(ipStr, "c=IN IP4 %s", buff);
+diff -ur DarwinStreamingSrvr6.0.3-Source/Buildit DarwinStreamingSrvr6.0.3-Source.x86_64/Buildit
+--- DarwinStreamingSrvr6.0.3-Source/Buildit	2008-03-26 01:42:48.000000000 +0100
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Buildit	2008-05-31 10:40:58.000000000 +0200
+@@ -65,14 +65,14 @@
+ case $PLAT in
+ 
+ 	Linux.ppc)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++        	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+ 		CPLUS=gcc
+ 		CCOMP=gcc
+ 		LINKER='gcc'
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linuxppc__ -pipe"
+-        INCLUDE_FLAG="-include"
++        	INCLUDE_FLAG="-include"
+ 		
+ 		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
+ 
+@@ -85,16 +85,39 @@
+ 		fi
+ 		;;		
+ 
++	Linux.i386 | \
++	Linux.i486 | \
+ 	Linux.i586 | \
+ 	Linux.i686)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+ 		CPLUS=gcc
+ 		CCOMP=gcc
+ 		LINKER='gcc'
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe"
+-        INCLUDE_FLAG="-include"
++		INCLUDE_FLAG="-include"
++		
++		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
++
++		SHARED=-shared
++		MODULE_LIBS=
++		
++		if [ -f /usr/include/socketbits.h ]; then
++			NEED_SOCKETBITS=1
++			export NEED_SOCKETBITS
++		fi
++		;;
++
++        Linux.x86_64)
++        	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++		CPLUS=gcc
++		CCOMP=gcc
++		LINKER='gcc'
++ 		MAKE=make
++ 		
++		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe -fPIC"
++		INCLUDE_FLAG="-include"
+ 		
+ 		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
+ 
+@@ -108,14 +131,14 @@
+ 		;;
+ 
+ 	Linux.mips)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+ 		CPLUS=gcc
+ 		CCOMP=gcc
+ 		LINKER='egcs'
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__linux__ -Wno-multichar -pipe"
+-        INCLUDE_FLAG="-include"
++		INCLUDE_FLAG="-include"
+ 		
+ 		CORE_LINK_LIBS="-lpthread -ldl -lm -lcrypt"
+ 
+@@ -129,14 +152,14 @@
+ 		;;
+ 
+ 	FreeBSD.i386)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++        	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+ 		CPLUS=gcc
+ 		CCOMP=gcc
+ 		LINKER="gcc"
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS=
+-        INCLUDE_FLAG="-include"
++		INCLUDE_FLAG="-include"
+ 		
+ 		CORE_LINK_LIBS="-pthread -lm -lcrypt"
+ 
+@@ -147,14 +170,14 @@
+ #	SunOS.sun4m | \
+ #	SunOS.sun4u)
+ 	SunOS.*)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+ 		CPLUS=g++
+ 		CCOMP=gcc
+ 		LINKER="g++"
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS="-D__solaris__ -D_REENTRANT -DFD_SETSIZE=65536 -L/usr/local/lib -R/usr/local/lib"
+-        INCLUDE_FLAG="-include"
++		INCLUDE_FLAG="-include"
+ 
+ 		CORE_LINK_LIBS="-lpthread -ldl -lsocket -lnsl -lresolv -lm -lcrypt -lstdc++"
+ 
+@@ -163,9 +186,9 @@
+ 		;;
+ 		
+ 	IRIX*.*)
+-# IRIX with MipsPro compiler
+-# Change all references of Makefile.POSIX below to Makefile.IRIX
+-	echo "Configuring for the "$OSNAME" "$HARDWARENAME" SGI platform"
++		# IRIX with MipsPro compiler
++		# Change all references of Makefile.POSIX below to Makefile.IRIX
++		echo "Configuring for the "$OSNAME" "$HARDWARENAME" SGI platform"
+ 		CPLUS=CC
+ 		CCOMP=cc
+ 		LINKER="CC"
+@@ -179,31 +202,31 @@
+ 		MODULE_LIBS=
+ 		;;
+ 		
+-    HP-UX.*)
+-        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-        CPLUS=gcc
+-        CCOMP=gcc
+-        LINKER=gcc
+-        MAKE=make
++    	HP-UX.*)
++        	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
++        	CPLUS=gcc
++        	CCOMP=gcc
++        	LINKER=gcc
++        	MAKE=make
+  
+-        COMPILER_FLAGS="-D__hpux__ -g -fPIC"
+-        INCLUDE_FLAG="-include"
++	        COMPILER_FLAGS="-D__hpux__ -g -fPIC"
++        	INCLUDE_FLAG="-include"
+  
+-        CORE_LINK_LIBS="-lpthread -lnsl -lm -lcrypt -lstdc++"
++	        CORE_LINK_LIBS="-lpthread -lnsl -lm -lcrypt -lstdc++"
+  
+-        SHARED=-shared
+-        MODULE_LIBS="-lgcc -lstdc++"
+-        ;;
++        	SHARED=-shared
++	        MODULE_LIBS="-lgcc -lstdc++"
++        	;;
+  
+  	OSF1.alpha)
+-         echo "Configuring for the "$OSNAME" "$HARDWARENAME" Tru64 UNIX platform"
++		echo "Configuring for the "$OSNAME" "$HARDWARENAME" Tru64 UNIX platform"
+  		CPLUS=`pwd`/my_tru64_cxx
+  		CCOMP=`pwd`/my_tru64_cc
+ 		LINKER="cxx"
+ 		MAKE=/usr/local/bin/make
+ 
+  		COMPILER_FLAGS="-D__osf__ -DTRUCLUSTER -pthread"
+-        INCLUDE_FLAG="-FI"
++		INCLUDE_FLAG="-FI"
+ 
+ 		CORE_LINK_LIBS="-lpthread -lclu -lm"
+ 
+@@ -213,7 +236,7 @@
+ 
+ 	"Darwin.i386" | \
+ 	"Darwin.Power Macintosh")
+-         echo "Configuring for "$OSNAME" on "$HARDWARENAME". This is an OS X build of the QuickTimeStreamingServer."
++        	echo "Configuring for "$OSNAME" on "$HARDWARENAME". This is an OS X build of the QuickTimeStreamingServer."
+  	
+  		;;
+ 
+@@ -227,7 +250,7 @@
+  		MAKE=make
+  		
+ 		COMPILER_FLAGS=-D__linux__
+-        INCLUDE_FLAG="-include"
++	        INCLUDE_FLAG="-include"
+ 
+ 		CORE_LINK_LIBS="-lpthread -ldl -lm -lcrypt"
+ 
+@@ -338,7 +361,11 @@
+ 	echo Building StreamingServer for $PLAT with $CPLUS
+ 	cd ..
+ 	
+-	$MAKE -f Makefile.POSIX $*
++	if [ "$*" = "clean" ] ; then
++		$MAKE -B -f Makefile.POSIX $*
++	else
++		$MAKE -f Makefile.POSIX $*
++	fi
+ 	
+ 	echo Building RefMovieModule for $PLAT with $CPLUS
+ 	cd APIModules/QTSSRefMovieModule/
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/OSHeaders.h DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/OSHeaders.h
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/OSHeaders.h	2008-05-24 02:05:15.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/OSHeaders.h	2008-05-31 10:30:15.000000000 +0200
+@@ -122,16 +122,16 @@
+ #elif __linux__ || __linuxppc__ || __FreeBSD__
+     /* Defines */
+     #define _64BITARG_ "q"
+-    #define _S64BITARG_ "lld"
+-    #define _U64BITARG_ "llu"
++    #define _S32BITARG_ "d"
++    #define _U32BITARG_ "u"
+ #if __LP64__
+-	#define _S32BITARG_ "d"
+-	#define _U32BITARG_ "u"
++	#define _S64BITARG_ "ld"
++	#define _U64BITARG_ "lu"
+         #define _SPOINTERSIZEARG_ _S64BITARG_
+         #define _UPOINTERSIZEARG_ _U64BITARG_
+ #else
+-	#define _S32BITARG_ "d"
+-	#define _U32BITARG_ "u"
++	#define _S64BITARG_ "lld"
++	#define _U64BITARG_ "llu"
+         #define _SPOINTERSIZEARG_ _S32BITARG_
+         #define _UPOINTERSIZEARG_ _U32BITARG_
+ #endif
+@@ -181,14 +181,14 @@
+         
+     #define TW0_CHARS_TO_INT( c1, c2 )  ( c1 << 8 | c2 )
+ 
+-    #define kSInt16_Max USHRT_MAX
+-    #define kUInt16_Max USHRT_MAX
++    #define kSInt16_Max (SInt16) SHRT_MAX
++    #define kUInt16_Max (UInt16) USHRT_MAX
+ 
+-    #define kSInt32_Max LONG_MAX
+-    #define kUInt32_Max ULONG_MAX
++    #define kSInt32_Max (SInt32) LONG_MAX
++    #define kUInt32_Max (UInt32) ULONG_MAX
+ 
+-    #define kSInt64_Max LONG_LONG_MAX
+-    #define kUInt64_Max ULONG_LONG_MAX
++    #define kSInt64_Max (SInt64) LONG_LONG_MAX
++    #define kUInt64_Max (UInt64) ULONG_LONG_MAX
+ 
+ #elif __Win32__
+     
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/Socket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/Socket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/Socket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/Socket.cpp	2008-05-30 23:35:40.000000000 +0200
+@@ -31,6 +31,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include <string.h>
+ 
+ #ifndef __Win32__
+@@ -186,8 +187,8 @@
+     socklen_t len = sizeof(fLocalAddr);
+     ::memset(&fLocalAddr, 0, sizeof(fLocalAddr));
+     fLocalAddr.sin_family = AF_INET;
+-    fLocalAddr.sin_port = htons(port);
+-    fLocalAddr.sin_addr.s_addr = htonl(addr);
++    fLocalAddr.sin_port = bswap_16(port);
++    fLocalAddr.sin_addr.s_addr = bswap_32(addr);
+     
+     int err;
+     
+@@ -229,7 +230,7 @@
+     {
+         for (UInt32 x = 0; x < SocketUtils::GetNumIPAddrs(); x++)
+         {
+-            if (SocketUtils::GetIPAddr(x) == ntohl(fLocalAddr.sin_addr.s_addr))
++            if (SocketUtils::GetIPAddr(x) == bswap_32(fLocalAddr.sin_addr.s_addr))
+             {
+                 fLocalAddrStrPtr = SocketUtils::GetIPAddrStr(x);
+                 break;
+@@ -244,7 +245,7 @@
+         fLocalAddrBuffer[0]=0;
+         fLocalAddrStrPtr = &fLocalAddrStr;
+         struct in_addr theAddr;
+-        theAddr.s_addr =ntohl(fLocalAddr.sin_addr.s_addr);
++        theAddr.s_addr =bswap_32(fLocalAddr.sin_addr.s_addr);
+         SocketUtils::ConvertAddrToString(theAddr, &fLocalAddrStr);
+ 
+         printf("Socket::GetLocalAddrStr Search IPs failed, numIPs=%d\n",SocketUtils::GetNumIPAddrs());
+@@ -270,7 +271,7 @@
+     {
+         for (UInt32 x = 0; x < SocketUtils::GetNumIPAddrs(); x++)
+         {
+-            if (SocketUtils::GetIPAddr(x) == ntohl(fLocalAddr.sin_addr.s_addr))
++            if (SocketUtils::GetIPAddr(x) == bswap_32(fLocalAddr.sin_addr.s_addr))
+             {
+                 fLocalDNSStrPtr = SocketUtils::GetDNSNameStr(x);
+                 break;
+@@ -290,7 +291,7 @@
+ {
+     if (fPortStr.Len == kPortBufSizeInBytes)
+     {
+-        int temp = ntohs(fLocalAddr.sin_port);
++        int temp = bswap_16(fLocalAddr.sin_port);
+         qtss_sprintf(fPortBuffer, "%d", temp);
+         fPortStr.Len = ::strlen(fPortBuffer);
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/Socket.h DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/Socket.h
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/Socket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/Socket.h	2008-05-30 23:35:35.000000000 +0200
+@@ -37,6 +37,7 @@
+ #define __SOCKET_H__
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <netinet/in.h>
+ #endif
+ 
+@@ -94,8 +95,8 @@
+         Bool16  IsBound()       { return (Bool16) (fState & kBound); }
+         
+         //If the socket is bound, you may find out to which addr it is bound
+-        UInt32  GetLocalAddr()  { return ntohl(fLocalAddr.sin_addr.s_addr); }
+-        UInt16  GetLocalPort()  { return ntohs(fLocalAddr.sin_port); }
++        UInt32  GetLocalAddr()  { return bswap_32(fLocalAddr.sin_addr.s_addr); }
++        UInt16  GetLocalPort()  { return bswap_16(fLocalAddr.sin_port); }
+         
+         StrPtrLen*  GetLocalAddrStr();
+         StrPtrLen*  GetLocalPortStr();
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/SocketUtils.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/SocketUtils.cpp
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/SocketUtils.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/SocketUtils.cpp	2008-05-30 23:34:48.000000000 +0200
+@@ -32,6 +32,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include <string.h>
+ 
+ #ifndef __Win32__
+@@ -123,7 +124,7 @@
+             char* theAddrStr = ::inet_ntoa(sockaddr->sin_addr);
+ 
+             //store the IP addr
+-            sIPAddrInfoArray[addrArrayIndex].fIPAddr = ntohl(sockaddr->sin_addr.s_addr);
++            sIPAddrInfoArray[addrArrayIndex].fIPAddr = bswap_32(sockaddr->sin_addr.s_addr);
+ 
+             //store the IP addr as a string
+             sIPAddrInfoArray[addrArrayIndex].fIPAddrStr.Len = ::strlen(theAddrStr);
+@@ -281,7 +282,7 @@
+         char* theAddrStr = ::inet_ntoa(theAddr->sin_addr);
+ 
+         //store the IP addr
+-        sIPAddrInfoArray[currentIndex].fIPAddr = ntohl(theAddr->sin_addr.s_addr);
++        sIPAddrInfoArray[currentIndex].fIPAddr = bswap_32(theAddr->sin_addr.s_addr);
+         
+         //store the IP addr as a string
+         sIPAddrInfoArray[currentIndex].fIPAddrStr.Len = ::strlen(theAddrStr);
+@@ -438,7 +439,7 @@
+ 			char* theAddrStr = ::inet_ntoa(sin.sin_addr);
+  
+ 			//store the IP addr
+-			sIPAddrInfoArray[currentIndex].fIPAddr = ntohl(sin.sin_addr.s_addr);
++			sIPAddrInfoArray[currentIndex].fIPAddr = bswap_32(sin.sin_addr.s_addr);
+  	    
+ 			//store the IP addr as a string
+ 			sIPAddrInfoArray[currentIndex].fIPAddrStr.Len = ::strlen(theAddrStr);
+@@ -483,7 +484,7 @@
+             char* theAddrStr = ::inet_ntoa(addrPtr->sin_addr);
+ 
+             //store the IP addr
+-            sIPAddrInfoArray[currentIndex].fIPAddr = ntohl(addrPtr->sin_addr.s_addr);
++            sIPAddrInfoArray[currentIndex].fIPAddr = bswap_32(addrPtr->sin_addr.s_addr);
+             
+             //store the IP addr as a string
+             sIPAddrInfoArray[currentIndex].fIPAddrStr.Len = ::strlen(theAddrStr);
+@@ -600,6 +601,6 @@
+     if (inAddrStr == NULL)
+         return 0;
+         
+-    return ntohl(::inet_addr(inAddrStr));
++    return bswap_32(::inet_addr(inAddrStr));
+ }
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/SocketUtils.h DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/SocketUtils.h
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/SocketUtils.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/SocketUtils.h	2008-05-30 23:34:42.000000000 +0200
+@@ -34,6 +34,7 @@
+ #define __SOCKETUTILS_H__
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+ #include <net/if.h>
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/TCPSocket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/TCPSocket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/TCPSocket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/TCPSocket.cpp	2008-05-30 23:35:46.000000000 +0200
+@@ -32,6 +32,7 @@
+ */
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <arpa/inet.h>
+@@ -100,8 +101,8 @@
+ {
+     ::memset(&fRemoteAddr, 0, sizeof(fRemoteAddr));
+     fRemoteAddr.sin_family = AF_INET;        /* host byte order */
+-    fRemoteAddr.sin_port = htons(inRemotePort); /* short, network byte order */
+-    fRemoteAddr.sin_addr.s_addr = htonl(inRemoteAddr);
++    fRemoteAddr.sin_port = bswap_16(inRemotePort); /* short, network byte order */
++    fRemoteAddr.sin_addr.s_addr = bswap_32(inRemoteAddr);
+ 
+     /* don't forget to error check the connect()! */
+     int err = ::connect(fFileDesc, (sockaddr *)&fRemoteAddr, sizeof(fRemoteAddr));
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/TCPSocket.h DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/TCPSocket.h
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/TCPSocket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/TCPSocket.h	2008-05-30 23:35:51.000000000 +0200
+@@ -35,6 +35,7 @@
+ #ifndef __TCPSOCKET_H__
+ #define __TCPSOCKET_H__
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -81,8 +82,8 @@
+         //ACCESSORS:
+         //Returns NULL if not currently available.
+         
+-        UInt32      GetRemoteAddr() { return ntohl(fRemoteAddr.sin_addr.s_addr); }
+-        UInt16      GetRemotePort() { return ntohs(fRemoteAddr.sin_port); }
++        UInt32      GetRemoteAddr() { return bswap_32(fRemoteAddr.sin_addr.s_addr); }
++        UInt16      GetRemotePort() { return bswap_16(fRemoteAddr.sin_port); }
+         //This function is NOT thread safe!
+         StrPtrLen*  GetRemoteAddrStr();
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/UDPSocket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/UDPSocket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/UDPSocket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/CommonUtilitiesLib/UDPSocket.cpp	2008-05-30 23:36:06.000000000 +0200
+@@ -32,6 +32,7 @@
+ */
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ 
+@@ -74,8 +75,8 @@
+     
+     struct sockaddr_in  theRemoteAddr;
+     theRemoteAddr.sin_family = AF_INET;
+-    theRemoteAddr.sin_port = htons(inRemotePort);
+-    theRemoteAddr.sin_addr.s_addr = htonl(inRemoteAddr);
++    theRemoteAddr.sin_port = bswap_16(inRemotePort);
++    theRemoteAddr.sin_addr.s_addr = bswap_32(inRemoteAddr);
+ 
+ #ifdef __sgi__
+ 	int theErr = ::sendto(fFileDesc, inBuffer, inLength, 0, (sockaddr*)&theRemoteAddr, sizeof(theRemoteAddr));
+@@ -112,8 +113,8 @@
+     if (theRecvLen == -1)
+         return (OS_Error)OSThread::GetErrno();
+     
+-    *outRemoteAddr = ntohl(fMsgAddr.sin_addr.s_addr);
+-    *outRemotePort = ntohs(fMsgAddr.sin_port);
++    *outRemoteAddr = bswap_32(fMsgAddr.sin_addr.s_addr);
++    *outRemotePort = bswap_16(fMsgAddr.sin_port);
+     Assert(theRecvLen >= 0);
+     *outRecvLen = (UInt32)theRecvLen;
+     return OS_NoErr;        
+@@ -125,10 +126,10 @@
+         UInt32 localAddr = fLocalAddr.sin_addr.s_addr; // Already in network byte order
+ 
+ #if __solaris__
+-    if( localAddr == htonl(INADDR_ANY) )
+-         localAddr = htonl(SocketUtils::GetIPAddr(0));
++    if( localAddr == bswap_32(INADDR_ANY) )
++         localAddr = bswap_32(SocketUtils::GetIPAddr(0));
+ #endif
+-    theMulti.imr_multiaddr.s_addr = htonl(inRemoteAddr);
++    theMulti.imr_multiaddr.s_addr = bswap_32(inRemoteAddr);
+     theMulti.imr_interface.s_addr = localAddr;
+     int err = setsockopt(fFileDesc, IPPROTO_IP, IP_ADD_MEMBERSHIP, (char*)&theMulti, sizeof(theMulti));
+     //AssertV(err == 0, OSThread::GetErrno());
+@@ -166,8 +167,8 @@
+ OS_Error UDPSocket::LeaveMulticast(UInt32 inRemoteAddr)
+ {
+     struct ip_mreq  theMulti;
+-    theMulti.imr_multiaddr.s_addr = htonl(inRemoteAddr);
+-    theMulti.imr_interface.s_addr = htonl(fLocalAddr.sin_addr.s_addr);
++    theMulti.imr_multiaddr.s_addr = bswap_32(inRemoteAddr);
++    theMulti.imr_interface.s_addr = bswap_32(fLocalAddr.sin_addr.s_addr);
+     int err = setsockopt(fFileDesc, IPPROTO_IP, IP_DROP_MEMBERSHIP, (char*)&theMulti, sizeof(theMulti));
+     if (err == -1)
+         return (OS_Error)OSThread::GetErrno();
+
+diff -ur DarwinStreamingSrvr6.0.3-Source/Makefile.POSIX DarwinStreamingSrvr6.0.3-Source.x86_64/Makefile.POSIX
+--- DarwinStreamingSrvr6.0.3-Source/Makefile.POSIX	2008-05-24 07:19:34.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Makefile.POSIX	2008-05-31 11:17:29.000000000 +0200
+@@ -150,6 +150,7 @@
+ 
+ clean:
+ 	rm -f $(CFILES:.c=.o) $(CPPFILES:.cpp=.o)
++	rm -f DarwinStreamingServer
+ 
+ .SUFFIXES: .cpp .c .o
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/BroadcasterMain.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/BroadcasterMain.cpp
+--- DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/BroadcasterMain.cpp	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/BroadcasterMain.cpp	2008-05-30 23:00:30.000000000 +0200
+@@ -216,7 +216,7 @@
+ 
+ struct sigaction act;
+     
+-#if defined(sun) || defined(i386) || defined(__MacOSX__) || defined(__sgi__) || defined(__osf__) || defined(__hpux__) || defined(__linuxppc__)
++#if defined(sun) || defined(i386) || defined(__MacOSX__) || defined(__sgi__) || defined(__osf__) || defined(__hpux__) || defined(__linuxppc__) || defined(__linux__)
+     sigemptyset(&act.sa_mask);
+     act.sa_flags = 0;
+     act.sa_handler = (void(*)(int))&SignalEventHandler;
+diff -ur DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/MP3Broadcaster.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/MP3Broadcaster.cpp
+--- DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/MP3Broadcaster.cpp	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/MP3Broadcaster.cpp	2008-05-30 23:36:26.000000000 +0200
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include "MP3Broadcaster.h"
+ #include "MP3MetaInfoUpdater.h"
+ #include "StringTranslator.h"
+@@ -874,7 +875,7 @@
+     {
+         struct hostent* theHostent = ::gethostbyname(mIPAddr);      
+         if (theHostent != NULL)
+-            addr = ntohl(*(UInt32*)(theHostent->h_addr_list[0]));
++            addr = bswap_32(*(UInt32*)(theHostent->h_addr_list[0]));
+         else
+             qtss_printf("Couldn't resolve address %s\n", mIPAddr);
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/MP3FileBroadcaster.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/MP3FileBroadcaster.cpp
+--- DarwinStreamingSrvr6.0.3-Source/MP3Broadcaster/MP3FileBroadcaster.cpp	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/MP3Broadcaster/MP3FileBroadcaster.cpp	2008-05-30 23:36:33.000000000 +0200
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include "MP3FileBroadcaster.h"
+ #include <fcntl.h>
+ //#include <unistd.h>
+@@ -312,7 +313,7 @@
+             break;
+             
+         // next three bytes are length, so go two bytes, copy 4 and mask off one
+-        int fieldLen = ntohl(OS::GetUInt32FromMemory((UInt32*)(ptr+2))) & 0x00ffffff;
++        int fieldLen = bswap_32(OS::GetUInt32FromMemory((UInt32*)(ptr+2))) & 0x00ffffff;
+         
+         if (!strncmp(ptr, "TP1", 3))    // Artist
+         {
+@@ -404,7 +405,7 @@
+         if (*ptr == 0)
+             break;
+             
+-        int fieldLen = ntohl(OS::GetUInt32FromMemory((UInt32*)(ptr+4)));
++        int fieldLen = bswap_32(OS::GetUInt32FromMemory((UInt32*)(ptr+4)));
+         
+         // should check compression and encryption flags for these fields, but I
+         // wouldn't really expect them to be set for title or artist
+diff -ur DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/BroadcasterSession.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/BroadcasterSession.cpp
+--- DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/BroadcasterSession.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/BroadcasterSession.cpp	2008-05-30 23:37:53.000000000 +0200
+@@ -31,6 +31,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include "BroadcasterSession.h"
+ #include "OSMemory.h"
+ #include "StrPtrLen.h"
+@@ -835,10 +836,10 @@
+         return;
+     
+     UInt16* theSeqNumP = (UInt16*)inPacket;
+-    UInt16 theSeqNum = ntohs(theSeqNumP[1]);
++    UInt16 theSeqNum = bswap_16(theSeqNumP[1]);
+     
+ //  UInt32* theSsrcP = (UInt32*)inPacket;
+-//  UInt32 theSSRC = ntohl(theSsrcP[2]);
++//  UInt32 theSSRC = bswap_32(theSsrcP[2]);
+     
+     for (UInt32 x = 0; x < fSDPParser.GetNumStreams(); x++)
+     {
+@@ -940,11 +941,11 @@
+     UInt32  *theWriter = (UInt32*)theRRBuffer;
+ 
+     // APP PACKET - QoS info
+-    *(theWriter++) = htonl(0x80CC0000); 
+-    //*(ia++) = htonl(trk[i].TrackSSRC);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl('ack ');
+-    *(theWriter++) = htonl(0);
++    *(theWriter++) = bswap_32(0x80CC0000); 
++    //*(ia++) = bswap_32(trk[i].TrackSSRC);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32('ack ');
++    *(theWriter++) = bswap_32(0);
+     
+     SInt16 theSeqNumDifference = inCurSeqNum - fStats[inTrackIndex].fHighestSeqNum;
+     
+@@ -959,7 +960,7 @@
+         
+     if (theSeqNumDifference > 0)
+     {
+-        *(theWriter++) = htonl(fStats[inTrackIndex].fLastAckedSeqNum + 1);
++        *(theWriter++) = bswap_32(fStats[inTrackIndex].fLastAckedSeqNum + 1);
+ #if BROADCAST_SESSION_DEBUG
+         qtss_printf("TrackID: %d Acking: %d\n", fSDPParser.GetStreamInfo(inTrackIndex)->fTrackID, fStats[inTrackIndex].fLastAckedSeqNum + 1);
+ #endif
+@@ -997,20 +998,20 @@
+             }
+             
+             // We have 1 completed mask. Add it to the packet
+-            *(theWriter++) = htonl(mask);
++            *(theWriter++) = bswap_32(mask);
+         }
+         fStats[inTrackIndex].fLastAckedSeqNum = inCurSeqNum;
+     }
+     else
+     {
+         // Just ack cur seq num, this is an out of order packet
+-        *(theWriter++) = htonl(inCurSeqNum);
++        *(theWriter++) = bswap_32(inCurSeqNum);
+     }
+ 
+     //
+     // Set the packet length
+     UInt16* lenP = (UInt16*)theRRBuffer;
+-    lenP[1] = htons((theWriter - theWriterStart) - 1); //length in octets - 1
++    lenP[1] = bswap_16((theWriter - theWriterStart) - 1); //length in octets - 1
+     
+     // Send the packet
+     Assert(fStats[inTrackIndex].fDestRTCPPort != 0);
+@@ -1037,11 +1038,11 @@
+     UInt32  *theWriter = (UInt32*)theRRBuffer;
+ 
+     // RECEIVER REPORT
+-    *(theWriter++) = htonl(0x81c90007);     // 1 src RR packet
+-    //*(theWriter++) = htonl(trk[i].rcvrSSRC);
+-    *(theWriter++) = htonl(0);
+-    //*(theWriter++) = htonl(trk[i].TrackSSRC);
+-    *(theWriter++) = htonl(0);
++    *(theWriter++) = bswap_32(0x81c90007);     // 1 src RR packet
++    //*(theWriter++) = bswap_32(trk[i].rcvrSSRC);
++    *(theWriter++) = bswap_32(0);
++    //*(theWriter++) = bswap_32(trk[i].TrackSSRC);
++    *(theWriter++) = bswap_32(0);
+     //if (trk[i].rtp_num_received > 0)
+     //  t = ((float)trk[i].rtp_num_lost / (float)trk[i].rtp_num_received) * 256;
+     //else
+@@ -1049,28 +1050,28 @@
+     //temp = t;
+     //temp = (temp & 0xff) << 24;
+     //temp |= (trk[i].rtp_num_received & 0x00ffffff);
+-    *(theWriter++) = htonl(0);
++    *(theWriter++) = bswap_32(0);
+     //temp = (trk[i].seq_num_cycles & 0xffff0000) | (trk[i].last_seq_num & 0x0000ffff);
+     //*(ia++) = toBigEndian_ulong(temp);
+-    *(theWriter++) = htonl(0);
++    *(theWriter++) = bswap_32(0);
+     *(theWriter++) = 0;                         // don't do jitter yet.
+     *(theWriter++) = 0;                         // don't do last SR timestamp
+     *(theWriter++) = 0;                         // don't do delay since last SR
+ 
+     // APP PACKET - QoS info
+-    *(theWriter++) = htonl(0x80CC000C); 
+-    //*(ia++) = htonl(trk[i].TrackSSRC);
+-    *(theWriter++) = htonl(0);
++    *(theWriter++) = bswap_32(0x80CC000C); 
++    //*(ia++) = bswap_32(trk[i].TrackSSRC);
++    *(theWriter++) = bswap_32(0);
+ // this QTSS changes after beta to 'qtss'
+-    *(theWriter++) = htonl('QTSS');
++    *(theWriter++) = bswap_32('QTSS');
+     //*(ia++) = toBigEndian_ulong(trk[i].rcvrSSRC);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(8);          // eight 4-byte quants below
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(8);          // eight 4-byte quants below
+ #define RR 0x72720004
+ #define PR 0x70720004
+ #define PD 0x70640002
+ #define PL 0x706C0004
+-    *(theWriter++) = htonl(RR);
++    *(theWriter++) = bswap_32(RR);
+     //unsigned int now, secs;
+     //now = microseconds();
+     //secs = now - trk[i].last_rtcp_packet_sent_us / USEC_PER_SEC;
+@@ -1078,16 +1079,16 @@
+     //  temp = trk[i].bytes_received_since_last_rtcp / secs;
+     //else
+     //  temp = 0;
+-    //*(ia++) = htonl(temp);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(PR);
+-    //*(ia++) = htonl(trk[i].rtp_num_received);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(PL);
+-    //*(ia++) = htonl(trk[i].rtp_num_lost);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(PD);
+-    *(theWriter++) = htonl(0);      // should be a short, but we need to pad to a long for the entire RTCP app packet
++    //*(ia++) = bswap_32(temp);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(PR);
++    //*(ia++) = bswap_32(trk[i].rtp_num_received);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(PL);
++    //*(ia++) = bswap_32(trk[i].rtp_num_lost);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(PD);
++    *(theWriter++) = bswap_32(0);      // should be a short, but we need to pad to a long for the entire RTCP app packet
+ 
+ #if BROADCAST_SESSION_DEBUG
+     qtss_printf("Sending receiver reports.\n");
+diff -ur DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/PlaylistBroadcaster.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/PlaylistBroadcaster.cpp
+--- DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/PlaylistBroadcaster.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/PlaylistBroadcaster.cpp	2008-05-30 23:38:11.000000000 +0200
+@@ -45,6 +45,7 @@
+ 
+ 
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -419,7 +420,7 @@
+ 
+ 	// if the address is a multicast address then we can't announce the broadcast.
+     
+-    if(SocketUtils::IsMulticastIPAddr(ntohl(inet_addr(broadcastParms->mDestAddress)))) {
++    if(SocketUtils::IsMulticastIPAddr(bswap_32(inet_addr(broadcastParms->mDestAddress)))) {
+         sAnnounceBroadcast = false;
+         return true;
+     }
+@@ -2082,7 +2083,7 @@
+ 
+ struct sigaction act;
+     
+-#if defined(sun) || defined(i386) || defined(__MacOSX__) || defined(__powerpc__) || defined (__sgi_cc__) || defined(__osf__) || defined(__hpux__)
++#if defined(sun) || defined(i386) || defined(__MacOSX__) || defined(__powerpc__) || defined (__sgi_cc__) || defined(__osf__) || defined(__hpux__) || defined(__linux__)
+ 	sigemptyset(&act.sa_mask);
+ 	act.sa_flags = 0;
+     act.sa_handler = (void(*)(int))&SignalEventHandler;
+diff -ur DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/playlist_elements.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/playlist_elements.cpp
+--- DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/playlist_elements.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/playlist_elements.cpp	2008-05-30 23:38:32.000000000 +0200
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include "playlist_elements.h"
+ #include "playlist_utils.h"
+ #include "OS.h"
+@@ -100,7 +101,7 @@
+             fData.fSavedSoundDescSize = descSize;
+             fData.fSavedDataRefIndex ++ ; // it is different than saved so change the index
+         }
+-        packetSDPtr->dataRefIndex = htons(fData.fSavedDataRefIndex);
++        packetSDPtr->dataRefIndex = bswap_16(fData.fSavedDataRefIndex);
+          
+     } while (false);
+ }
+@@ -168,10 +169,10 @@
+     
+     //write the SR & SDES headers
+     UInt32* theSRWriter = (UInt32*)&fData.fSenderReportBuffer;
+-    *theSRWriter = htonl(0x80c80006);
++    *theSRWriter = bswap_32(0x80c80006);
+     theSRWriter += 7;
+     //SDES length is the length of the CName, plus 2 32bit words
+-    *theSRWriter = htonl(0x81ca0000 + (cNameLen >> 2) + 1);
++    *theSRWriter = bswap_32(0x81ca0000 + (cNameLen >> 2) + 1);
+     ::memcpy(&fData.fSenderReportBuffer[kSenderReportSizeInBytes], theTempCName, cNameLen);
+     fData.fSenderReportSize = kSenderReportSizeInBytes + cNameLen;
+ }
+@@ -345,7 +346,7 @@
+         UInt32* theReport = (UInt32*) fData.fSenderReportBuffer;
+         
+         theReport++;
+-        *theReport = htonl(fData.fSsrc);
++        *theReport = bswap_32(fData.fSsrc);
+         
+         theReport++;
+         SInt64* theNTPTimestampP = (SInt64*)theReport;      
+@@ -353,7 +354,7 @@
+                                 PlayListUtils::TimeMilli_To_Fixed64Secs(theTime - fData.fStreamStartTime));
+                                 
+         theReport += 2;
+-        *theReport = htonl(fData.fTimeStamp);
++        *theReport = bswap_32(fData.fTimeStamp);
+ 
+         Float64 curTimeInScale =   (Float64) (SInt64) PlayListUtils::Milliseconds() / (Float64)  PlayListUtils::eMilli; // convert to float seconds
+         curTimeInScale = curTimeInScale  * (Float64)  fData.fMovieMediaTypePtr->fTimeScale; // curTime in media time scale
+@@ -361,18 +362,18 @@
+         curTimeInScale = (UInt32) ( (UInt64) curTimeInScale & (UInt64) 0xFFFFFFFF ); 
+ 
+         //qtss_printf("MediaStream::UpdateSenderReport RTCP timestamp = %"_U32BITARG_"\n",(UInt32) curTimeInScale);
+-        *theReport = htonl((UInt32) curTimeInScale);
++        *theReport = bswap_32((UInt32) curTimeInScale);
+         
+         theReport++;        
+         fData.fPacketCount = (UInt32) fData.fPacketsSent;
+-        *theReport = htonl(fData.fPacketCount);
++        *theReport = bswap_32(fData.fPacketCount);
+     
+         theReport++;
+         fData.fByteCount = (UInt32)  fData.fBytesSent; 
+-        *theReport = htonl(fData.fByteCount);
++        *theReport = bswap_32(fData.fByteCount);
+         
+         theReport += 2;
+-        *theReport = htonl(fData.fSsrc);
++        *theReport = bswap_32(fData.fSsrc);
+         
+         LogStr("Sender Report\n");
+         LogUInt("NTP ",(UInt32) ((*theNTPTimestampP) >> 32)," ");
+@@ -463,23 +464,23 @@
+ {
+     ::memset(&fLocalAddrRTp, 0, sizeof(fLocalAddrRTp));
+     fLocalAddrRTp.sin_family = PF_INET;
+-    fLocalAddrRTp.sin_port = htons(0);
+-    fLocalAddrRTp.sin_addr.s_addr = htonl(addr);
++    fLocalAddrRTp.sin_port = bswap_16(0);
++    fLocalAddrRTp.sin_addr.s_addr = bswap_32(addr);
+ 
+     ::memset(&fLocalAddrRTCp, 0, sizeof(fLocalAddrRTCp));
+     fLocalAddrRTCp.sin_family = PF_INET;
+-    fLocalAddrRTCp.sin_port = htons(0);
+-    fLocalAddrRTCp.sin_addr.s_addr = htonl(addr);
++    fLocalAddrRTCp.sin_port = bswap_16(0);
++    fLocalAddrRTCp.sin_addr.s_addr = bswap_32(addr);
+ 
+     ::memset(&fDestAddrRTp, 0, sizeof(fDestAddrRTp));
+     fDestAddrRTp.sin_family = PF_INET;
+-    fDestAddrRTp.sin_port = htons(0);
+-    fDestAddrRTp.sin_addr.s_addr = htonl(addr);
++    fDestAddrRTp.sin_port = bswap_16(0);
++    fDestAddrRTp.sin_addr.s_addr = bswap_32(addr);
+ 
+     ::memset(&fDestAddrRTCp, 0, sizeof(fDestAddrRTCp));
+     fDestAddrRTCp.sin_family = PF_INET;
+-    fDestAddrRTCp.sin_port = htons(0);
+-    fDestAddrRTCp.sin_addr.s_addr = htonl(addr);
++    fDestAddrRTCp.sin_port = bswap_16(0);
++    fDestAddrRTCp.sin_addr.s_addr = bswap_32(addr);
+ }
+ 
+ SInt16 UDPSocketPair::Bind(UInt32 addr)
+@@ -502,8 +503,8 @@
+         PortRTCp = count;
+         Assert( (PortRTCp & 1) == 1);// must be odd and one more than rtp port
+         
+-        fLocalAddrRTp.sin_port = htons( (UInt16) PortRTp);
+-        fLocalAddrRTCp.sin_port = htons( (UInt16) PortRTCp);
++        fLocalAddrRTp.sin_port = bswap_16( (UInt16) PortRTp);
++        fLocalAddrRTCp.sin_port = bswap_16( (UInt16) PortRTCp);
+             
+         //qtss_printf("Attempting to bind to rtp port %d \n",PortRTp);
+         
+@@ -546,7 +547,7 @@
+         if (destAddrPtr == NULL) break;         
+         if (socket == kInvalidSocket) break;
+         
+-        //qtss_printf("Sending data to %d. Addr = %d inLength = %d\n", ntohs(theAddr->sin_port), ntohl(theAddr->sin_addr.s_addr), inLength);
++        //qtss_printf("Sending data to %d. Addr = %d inLength = %d\n", bswap_16(theAddr->sin_port), bswap_32(theAddr->sin_addr.s_addr), inLength);
+         ::sendto(socket, inBuffer, inLength, 0, destAddrPtr, sizeof(sockaddr));
+         
+         result = 0;
+@@ -585,14 +586,14 @@
+     {   UInt32 netAddress = inet_addr(destAddress);
+     
+         fDestAddrRTp = fLocalAddrRTp; 
+-        fDestAddrRTp.sin_port = htons(destPortRTp); 
++        fDestAddrRTp.sin_port = bswap_16(destPortRTp); 
+         fDestAddrRTp.sin_addr.s_addr = netAddress;
+         
+         fDestAddrRTCp = fLocalAddrRTCp;
+-        fDestAddrRTCp.sin_port = htons(destPortRTCp);       
++        fDestAddrRTCp.sin_port = bswap_16(destPortRTCp);       
+         fDestAddrRTCp.sin_addr.s_addr =  netAddress;
+         
+-        fIsMultiCast = SocketUtils::IsMulticastIPAddr(ntohl(netAddress));
++        fIsMultiCast = SocketUtils::IsMulticastIPAddr(bswap_32(netAddress));
+ 
+         result = 0;
+     }
+@@ -619,8 +620,8 @@
+     UInt32 localAddr = fLocalAddrRTp.sin_addr.s_addr; // Already in network byte order
+ 
+ #if __solaris__
+-    if( localAddr == htonl(INADDR_ANY) )
+-         localAddr = htonl(SocketUtils::GetIPAddr(0));
++    if( localAddr == bswap_32(INADDR_ANY) )
++         localAddr = bswap_32(SocketUtils::GetIPAddr(0));
+ #endif
+ 
+     struct ip_mreq  theMulti;
+@@ -656,8 +657,8 @@
+    UInt32 localAddr = fLocalAddrRTp.sin_addr.s_addr; // Already in network byte order
+ 
+ #if __solaris__
+-    if( localAddr == htonl(INADDR_ANY) )
+-         localAddr = htonl(SocketUtils::GetIPAddr(0));
++    if( localAddr == bswap_32(INADDR_ANY) )
++         localAddr = bswap_32(SocketUtils::GetIPAddr(0));
+ #endif
+ 
+     struct ip_mreq  theMulti;
+@@ -771,7 +772,7 @@
+         {
+             char *offsetPtr = fThePacket + kRTpHeaderSize + sizeof(SoundHeader);
+             *soundDescriptionPtr = (SoundDescription *) offsetPtr;
+-            SInt32 descSize = ntohl( (**soundDescriptionPtr).descSize);
++            SInt32 descSize = bswap_32( (**soundDescriptionPtr).descSize);
+             fSoundDescriptionLen = descSize;
+             result = 0;
+         }
+@@ -828,9 +829,9 @@
+     if (fThePacket && timeStampPtr && sequencePtr && SSRCPtr && payloadTypeAndMarkPtr)
+     {
+         *payloadTypeAndMarkPtr = header8Ptr[cPayloadType];
+-        *sequencePtr = ntohs(header16Ptr[cSequenceNumber]);
+-        *timeStampPtr = ntohl(header32Ptr[cTimeStamp]);
+-        *SSRCPtr = ntohl(header32Ptr[cSSRC]);
++        *sequencePtr = bswap_16(header16Ptr[cSequenceNumber]);
++        *timeStampPtr = bswap_32(header32Ptr[cTimeStamp]);
++        *SSRCPtr = bswap_32(header32Ptr[cSSRC]);
+         result = 0; 
+     }
+     
+@@ -859,9 +860,9 @@
+         LogUInt("ssrc = ", SSRC, "\n");
+ 
+         header8Ptr[cPayloadType] = payloadTypeAndMark;
+-        header16Ptr[cSequenceNumber] = htons(sequence);
+-        header32Ptr[cTimeStamp] = htonl(timeStamp);     
+-        header32Ptr[cSSRC] = htonl(SSRC);       
++        header16Ptr[cSequenceNumber] = bswap_16(sequence);
++        header32Ptr[cTimeStamp] = bswap_32(timeStamp);     
++        header32Ptr[cSSRC] = bswap_32(SSRC);       
+         result = 0; 
+ 
+         LogBuffer();
+diff -ur DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/playlist_SDPGen.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/playlist_SDPGen.cpp
+--- DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/playlist_SDPGen.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/playlist_SDPGen.cpp	2008-05-30 23:38:54.000000000 +0200
+@@ -22,6 +22,7 @@
+  * @APPLE_LICENSE_HEADER_END@
+  *
+  */
++#include <byteswap.h>
+ #include "playlist_utils.h"
+ #include "playlist_SDPGen.h"
+ #include "playlist_broadcaster.h"
+@@ -162,7 +163,7 @@
+         //    c=IN IP4 (destinatin ip address)
+         {   
+             char  sdpLine[255];
+-            if (SocketUtils::IsMulticastIPAddr(ntohl(inet_addr(ipAddress))))
++            if (SocketUtils::IsMulticastIPAddr(bswap_32(inet_addr(ipAddress))))
+                 qtss_sprintf(sdpLine, "c=IN IP4 %s/%s\r\n", ipAddress,ttl);
+             else
+                  qtss_sprintf(sdpLine, "c=IN IP4 %s\r\n", ipAddress);
+diff -ur DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/PLBroadcastDef.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/PLBroadcastDef.cpp
+--- DarwinStreamingSrvr6.0.3-Source/PlaylistBroadcaster.tproj/PLBroadcastDef.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/PlaylistBroadcaster.tproj/PLBroadcastDef.cpp	2008-05-30 23:39:09.000000000 +0200
+@@ -28,6 +28,7 @@
+     8.2.99 - rt updated ShowSettings() to display user names for fields instead of C++ member names.
+ */
+ 
++#include <byteswap.h>
+ #include "PLBroadcastDef.h"
+ #include "MyAssert.h"
+ #include "SocketUtils.h"
+@@ -473,7 +474,7 @@
+         struct hostent* theHostent = ::gethostbyname(mDestAddress);     
+         if (theHostent != NULL)
+         {
+-            inAddr = ntohl(*(UInt32*)(theHostent->h_addr_list[0]));
++            inAddr = bswap_32(*(UInt32*)(theHostent->h_addr_list[0]));
+             
+             struct in_addr inAddrStruct;
+             char buffer[50];
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom.cpp	2008-05-30 23:39:44.000000000 +0200
+@@ -30,6 +30,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -126,7 +127,7 @@
+     if( !ReadBytes(Offset, (char *)&tempDatum, 2) )
+         return false;
+     
+-    *Datum = ntohs(tempDatum);
++    *Datum = bswap_16(tempDatum);
+     return true;
+ }
+ 
+@@ -141,7 +142,7 @@
+     if( !ReadBytes(Offset, (char *)&tempDatum, 4) )
+         return false;
+     
+-    *Datum = ntohl(tempDatum);
++    *Datum = bswap_32(tempDatum);
+     return true;
+ }
+ 
+@@ -156,7 +157,7 @@
+     if( !ReadBytes(Offset, (char *)&tempDatum, 4) )
+         return false;
+     
+-    tempDatum =  ntohl(tempDatum);
++    tempDatum =  bswap_32(tempDatum);
+     *Datum = (UInt64) tempDatum;
+     return true;
+ }
+@@ -171,7 +172,7 @@
+ 	if( !ReadBytes(Offset, (char *)&tempDatum, 4) )
+ 		return false;
+ 	
+-	tempDatum =  ntohl(tempDatum);
++	tempDatum =  bswap_32(tempDatum);
+ 	*Datum = (SInt64) (SInt32) tempDatum;
+ 	return true;
+ }
+@@ -233,7 +234,7 @@
+     if( !ReadSubAtomBytes(AtomPath, (char *)&tempDatum, 2) )
+         return false;
+     
+-    *Datum = ntohs(tempDatum);
++    *Datum = bswap_16(tempDatum);
+     return true;
+ }
+ 
+@@ -248,7 +249,7 @@
+     if( !ReadSubAtomBytes(AtomPath, (char *)&tempDatum, 4) )
+         return false;
+     
+-    *Datum = ntohl(tempDatum);
++    *Datum = bswap_32(tempDatum);
+     return true;
+ }
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_dref.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_dref.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_dref.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_dref.cpp	2008-05-30 23:39:52.000000000 +0200
+@@ -31,6 +31,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -345,23 +346,23 @@
+     for( int loopCount = kMaxMark - 1; loopCount >= 0; loopCount--) {
+         //
+         // Break out of the loop if this is a match/the end of the alias.
+-        if( ((short)ntohs(AliasVarInfo->what) == kAbsPath) || ((short)ntohs(AliasVarInfo->what) == kEndMark) )
++        if( ((short)bswap_16(AliasVarInfo->what) == kAbsPath) || ((short)bswap_16(AliasVarInfo->what) == kEndMark) )
+             break;
+         
+         //
+         // Otherwise we need to move to the next data unit.
+-        AliasVarInfo = (varInfo *)((char *)AliasVarInfo + ((ntohs(AliasVarInfo->len) + 1) & ~1) + 4 /* header size */);
++        AliasVarInfo = (varInfo *)((char *)AliasVarInfo + ((bswap_16(AliasVarInfo->len) + 1) & ~1) + 4 /* header size */);
+     }
+ 
+ 
+     //
+     // Now that we have the path, we need to strip off the absolute portions
+     // of it so that we can get at it from our current (relative) root.
+-    AliasVarInfo->data[ntohs(AliasVarInfo->len)] = '\0';
++    AliasVarInfo->data[bswap_16(AliasVarInfo->len)] = '\0';
+     
+     pathStart = path = AliasVarInfo->data;
+-    path += ntohs(AliasVarInfo->len);
+-    int i = ntohs(Alias->nlvlTo);
++    path += bswap_16(AliasVarInfo->len);
++    int i = bswap_16(Alias->nlvlTo);
+     pathLength = -1;
+     while( i && (path > pathStart) ) {
+         if( *path-- == ':' )
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stco.h DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stco.h
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stco.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stco.h	2008-05-30 23:40:44.000000000 +0200
+@@ -33,6 +33,7 @@
+ //
+ // Includes
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <netinet/in.h>
+ #endif
+ #include "QTFile.h"
+@@ -63,7 +64,7 @@
+                             if (Offset && ChunkNumber && (ChunkNumber<=fNumEntries)) 
+                             {
+                                 if (4 == fOffSetSize)
+-                                    *Offset = (UInt64) ntohl( ( (UInt32 *) fTable)[ChunkNumber-1]);
++                                    *Offset = (UInt64) bswap_32( ( (UInt32 *) fTable)[ChunkNumber-1]);
+                                 else
+                                     *Offset = (UInt64) QTAtom::NTOH64( ( (UInt64 *) fTable)[ChunkNumber-1]);
+                                         
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsc.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsc.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsc.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsc.cpp	2008-05-30 23:40:51.000000000 +0200
+@@ -30,6 +30,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -255,7 +256,7 @@
+     if (fNumEntries == 1)
+     {   
+         memcpy(&samplesPerChunk, fSampleToChunkTable + (STCB->fCurEntry_GetChunkFirstLastSample * 12) + 4, 4);
+-        samplesPerChunk = ntohl(samplesPerChunk);
++        samplesPerChunk = bswap_32(samplesPerChunk);
+     
+         prevSamplesPerChunk = ((chunkNumber -1 ) * samplesPerChunk);
+         totalSamples = chunkNumber * samplesPerChunk;
+@@ -268,9 +269,9 @@
+         prevFirstChunk = thisFirstChunk;
+ 
+         memcpy(&thisFirstChunk, fSampleToChunkTable + (STCB->fCurEntry_GetChunkFirstLastSample * 12) + 0, 4);
+-        thisFirstChunk = ntohl(thisFirstChunk);
++        thisFirstChunk = bswap_32(thisFirstChunk);
+         memcpy(&samplesPerChunk, fSampleToChunkTable + (STCB->fCurEntry_GetChunkFirstLastSample * 12) + 4, 4);
+-        samplesPerChunk = ntohl(samplesPerChunk);
++        samplesPerChunk = bswap_32(samplesPerChunk);
+         
+         if (prevSamplesPerChunk == 0)  
+             prevSamplesPerChunk = samplesPerChunk;
+@@ -347,11 +348,11 @@
+         prevFirstChunk = thisFirstChunk;
+ 
+         memcpy(&thisFirstChunk, fSampleToChunkTable + (STCB->fCurEntry * 12) + 0, 4);
+-        thisFirstChunk = ntohl(thisFirstChunk);
++        thisFirstChunk = bswap_32(thisFirstChunk);
+         memcpy(&samplesPerChunk, fSampleToChunkTable + (STCB->fCurEntry * 12) + 4, 4);
+-        samplesPerChunk = ntohl(samplesPerChunk);
++        samplesPerChunk = bswap_32(samplesPerChunk);
+         memcpy(&sampleDescription, fSampleToChunkTable + (STCB->fCurEntry * 12) + 8, 4);
+-        sampleDescription = ntohl(sampleDescription);
++        sampleDescription = bswap_32(sampleDescription);
+         
+         thisChunk = thisFirstChunk;
+         numChunks = thisFirstChunk - prevFirstChunk;
+@@ -488,11 +489,11 @@
+         //
+         // Copy this entry's fields.
+         memcpy(&FirstChunk, fSampleToChunkTable + (STCB->fCurEntry_SampleToChunkInfo * 12) + 0, 4);
+-        FirstChunk = ntohl(FirstChunk);
++        FirstChunk = bswap_32(FirstChunk);
+         memcpy(&SamplesPerChunk, fSampleToChunkTable + (STCB->fCurEntry_SampleToChunkInfo * 12) + 4, 4);
+-        SamplesPerChunk = ntohl(SamplesPerChunk);
++        SamplesPerChunk = bswap_32(SamplesPerChunk);
+         memcpy(&SampleDescription, fSampleToChunkTable + (STCB->fCurEntry_SampleToChunkInfo * 12) + 8, 4);
+-        SampleDescription = ntohl(SampleDescription);
++        SampleDescription = bswap_32(SampleDescription);
+         
+         //
+         // Check to see if the sample was actually in the last chunk and
+@@ -605,11 +606,11 @@
+         //
+         // Copy this entry's fields.
+         memcpy(&FirstChunk, fSampleToChunkTable + (CurEntry * 12) + 0, 4);
+-        FirstChunk = ntohl(FirstChunk);
++        FirstChunk = bswap_32(FirstChunk);
+         memcpy(&SamplesPerChunk, fSampleToChunkTable + (CurEntry * 12) + 4, 4);
+-        SamplesPerChunk = ntohl(SamplesPerChunk);
++        SamplesPerChunk = bswap_32(SamplesPerChunk);
+         memcpy(&SampleDescription, fSampleToChunkTable + (CurEntry * 12) + 8, 4);
+-        SampleDescription = ntohl(SampleDescription);
++        SampleDescription = bswap_32(SampleDescription);
+         
+         //
+         // Print out a listing.
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsd.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsd.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsd.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsd.cpp	2008-05-30 23:41:13.000000000 +0200
+@@ -31,6 +31,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -141,7 +142,7 @@
+             //
+             // Skip over this mini-atom.
+             memcpy(&tempInt32, pSampleDescriptionTable, 4);
+-            pSampleDescriptionTable += ntohl(tempInt32);
++            pSampleDescriptionTable += bswap_32(tempInt32);
+             if (pSampleDescriptionTable > maxSampleDescriptionPtr)
+             {   return false;
+             }
+@@ -171,7 +172,7 @@
+         //
+         // Get this entry's data format.
+         memcpy(&tempInt32, fTable[CurDesc] + stsdDescPos_DataFormat, 4);
+-        tempInt32 = ntohl(tempInt32);
++        tempInt32 = bswap_32(tempInt32);
+ 
+         //
+         // Skip this entry if it does not match.
+@@ -183,7 +184,7 @@
+         *Buffer = fTable[CurDesc];
+ 
+         memcpy(&tempInt32, fTable[CurDesc] + stsdDescPos_Size, 4);
+-        *Length = ntohl(tempInt32);
++        *Length = bswap_32(tempInt32);
+ 
+         return true;
+     }
+@@ -207,7 +208,7 @@
+     //
+     // Find and return the given sample's data reference index.
+     memcpy(&tempInt16, fTable[SampleDescriptionID - 1] + stsdDescPos_Index, 2);
+-    return ntohs(tempInt16);
++    return bswap_16(tempInt16);
+ }
+ 
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stss.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stss.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stss.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stss.cpp	2008-05-30 23:41:18.000000000 +0200
+@@ -31,6 +31,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -148,7 +149,7 @@
+             
+             for ( sampleIndex = 0; sampleIndex < fNumEntries; sampleIndex++ )
+             {
+-                fTable[sampleIndex] = ntohl( fTable[sampleIndex] );
++                fTable[sampleIndex] = bswap_32( fTable[sampleIndex] );
+             
+             }
+         
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsz.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsz.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsz.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsz.cpp	2008-05-30 23:41:26.000000000 +0200
+@@ -31,6 +31,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -164,7 +165,7 @@
+             {   *sizePtr = 0;
+                 
+                 for (UInt32 sampleNumber = firstSampleNumber; sampleNumber <= lastSampleNumber; sampleNumber++ ) 
+-                    *sizePtr += ntohl(fTable[sampleNumber-1]);
++                    *sizePtr += bswap_32(fTable[sampleNumber-1]);
+                 
+             }
+             result =  true; 
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsz.h DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsz.h
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stsz.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stsz.h	2008-05-30 23:43:15.000000000 +0200
+@@ -33,6 +33,7 @@
+ 
+ //
+ // Includes
++#include <byteswap.h>
+ #include "QTFile.h"
+ #include "QTAtom.h"
+ 
+@@ -62,7 +63,7 @@
+                                     return true; \
+                                 } else if(SampleNumber && (SampleNumber<=fNumEntries)) { \
+                                     if( Size != NULL ) \
+-                                        *Size = ntohl(fTable[SampleNumber-1]); \
++                                        *Size = bswap_32(fTable[SampleNumber-1]); \
+                                     return true; \
+                                 } else \
+                                     return false; \
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stts.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stts.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_stts.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_stts.cpp	2008-05-30 23:41:31.000000000 +0200
+@@ -31,6 +31,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -195,9 +196,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (STCB->fMTtSN_CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleDuration, fTimeToSampleTable + (STCB->fMTtSN_CurEntry * 8) + 4, 4);
+-        SampleDuration = ntohl(SampleDuration);
++        SampleDuration = bswap_32(SampleDuration);
+ 
+         //
+         // Can we skip over this entry?
+@@ -255,9 +256,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (STCB->fSNtMT_CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleDuration, fTimeToSampleTable + (STCB->fSNtMT_CurEntry * 8) + 4, 4);
+-        SampleDuration = ntohl(SampleDuration);
++        SampleDuration = bswap_32(SampleDuration);
+ 
+         //
+         // Can we skip over this entry?
+@@ -312,9 +313,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleDuration, fTimeToSampleTable + (CurEntry* 8) + 4, 4);
+-        SampleDuration = ntohl(SampleDuration);
++        SampleDuration = bswap_32(SampleDuration);
+ 
+         // Print out a listing.
+         qtss_printf("  %10"_U32BITARG_" : %10"_U32BITARG_"  %10"_U32BITARG_"\n", CurEntry, SampleCount, SampleDuration);
+@@ -454,9 +455,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (STCB->fMTtSN_CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleDuration, fTimeToSampleTable + (STCB->fMTtSN_CurEntry * 8) + 4, 4);
+-        SampleDuration = ntohl(SampleDuration);
++        SampleDuration = bswap_32(SampleDuration);
+ 
+         //
+         // Can we skip over this entry?
+@@ -514,9 +515,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (STCB->fSNtMT_CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleOffset, fTimeToSampleTable + (STCB->fSNtMT_CurEntry * 8) + 4, 4);
+-        SampleOffset = ntohl(SampleOffset);
++        SampleOffset = bswap_32(SampleOffset);
+ 
+         //
+         // Can we skip over this entry?
+@@ -571,9 +572,9 @@
+         //
+         // Copy this sample count and duration.
+         memcpy(&SampleCount, fTimeToSampleTable + (CurEntry * 8), 4);
+-        SampleCount = ntohl(SampleCount);
++        SampleCount = bswap_32(SampleCount);
+         memcpy(&SampleOffset, fTimeToSampleTable + (CurEntry* 8) + 4, 4);
+-        SampleOffset = ntohl(SampleOffset);
++        SampleOffset = bswap_32(SampleOffset);
+ 
+         // Print out a listing.
+         qtss_printf("  %10"_U32BITARG_" : %10"_U32BITARG_"  %10"_U32BITARG_"\n", CurEntry, SampleCount, SampleOffset);
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_tref.h DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_tref.h
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTAtom_tref.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTAtom_tref.h	2008-05-30 23:43:53.000000000 +0200
+@@ -33,6 +33,7 @@
+ //
+ // Includes
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <netinet/in.h>
+ #endif
+ 
+@@ -62,7 +63,7 @@
+     inline  Bool16      TrackReferenceToTrackID(UInt32 TrackReference, UInt32 * TrackID = NULL) \
+                             {   if(TrackReference < fNumEntries) { \
+                                     if( TrackID != NULL ) \
+-                                        *TrackID = ntohl(fTable[TrackReference]); \
++                                        *TrackID = bswap_32(fTable[TrackReference]); \
+                                     return true; \
+                                 } else \
+                                     return false; \
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTFile.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTFile.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTFile.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTFile.cpp	2008-05-30 23:44:05.000000000 +0200
+@@ -32,6 +32,7 @@
+ // Includes
+ //
+ 
++#include <byteswap.h>
+ #include <fcntl.h>
+ 
+ #include <stdio.h>
+@@ -656,7 +657,7 @@
+         //
+         // Swap the AtomLength for little-endian machines.
+         CurPos += 4;
+-        atomLength = ntohl(atomLength);
++        atomLength = bswap_32(atomLength);
+         BigAtomLength = (UInt64) atomLength;
+         hasBigAtom = false;
+ 
+@@ -691,12 +692,12 @@
+             if( !Read(CurPos, (char *)&atomLength, 4) )
+                 return false;
+             CurPos += 4;
+-            BigAtomLength =  (UInt64) ntohl(atomLength);
++            BigAtomLength =  (UInt64) bswap_32(atomLength);
+             
+             if( !Read(CurPos, (char *)&AtomType, 4) )
+                 return false;
+             CurPos += 4;
+-            AtomType = ntohl(AtomType);
++            AtomType = bswap_32(AtomType);
+ 
+             //
+             // Skip over the rest of the fields.
+@@ -716,7 +717,7 @@
+ 
+             CurPos += 4;
+             CurAtomHeaderSize = 4 + 4; // AtomLength + AtomType
+-            AtomType = ntohl(AtomType);
++            AtomType = bswap_32(AtomType);
+ 
+             if ( atomLength == 1 ) //large size atom
+             {
+@@ -799,7 +800,7 @@
+         NewTOCEntry->TOCID = fNextTOCID++;
+ 
+         NewTOCEntry->AtomType = AtomType;
+-        NewTOCEntry->beAtomType = htonl(AtomType);
++        NewTOCEntry->beAtomType = bswap_32(AtomType);
+ 
+         NewTOCEntry->AtomDataPos = CurPos;
+         NewTOCEntry->AtomDataLength = BigAtomLength - CurAtomHeaderSize;
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTHintTrack.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTHintTrack.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTHintTrack.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTHintTrack.cpp	2008-05-30 23:44:14.000000000 +0200
+@@ -47,6 +47,7 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -236,7 +237,7 @@
+         return errInvalidQuickTimeFile;
+ 
+     ::memcpy(&fMaxPacketSize, sampleDescription + 20, 4);
+-    fMaxPacketSize = ntohl(fMaxPacketSize);
++    fMaxPacketSize = bswap_32(fMaxPacketSize);
+     
+     for( pSampleDescription = (sampleDescription + 24);
+          pSampleDescription < (sampleDescription + sampleDescriptionLength);
+@@ -248,27 +249,27 @@
+         //
+         // Get the entry length and data type of this entry.
+         ::memcpy( &entryLength, pSampleDescription + 0, 4);
+-        entryLength = ntohl(entryLength);
++        entryLength = bswap_32(entryLength);
+         
+         ::memcpy( &dataType, pSampleDescription + 4, 4);
+-        dataType = ntohl(dataType);
++        dataType = bswap_32(dataType);
+         
+         //
+         // Process this data type.
+         switch( dataType ) {
+             case FOUR_CHARS_TO_INT('t', 'i', 'm', 's'): // tims RTP timescale
+                 ::memcpy(&fRTPTimescale, pSampleDescription + 8, 4);
+-                fRTPTimescale = ntohl(fRTPTimescale);
++                fRTPTimescale = bswap_32(fRTPTimescale);
+             break;
+             
+             case FOUR_CHARS_TO_INT('t', 's', 'r', 'o'): // tsro Timestamp random offset
+                 ::memcpy(&fTimestampRandomOffset, pSampleDescription + 8, 4);
+-                fTimestampRandomOffset = ntohl(fTimestampRandomOffset);
++                fTimestampRandomOffset = bswap_32(fTimestampRandomOffset);
+             break;
+             
+             case FOUR_CHARS_TO_INT('s', 'n', 'r', 'o'): // snro Sequence number random offset
+                 ::memcpy(&fSequenceNumberRandomOffset, pSampleDescription + 8, 2);
+-                fSequenceNumberRandomOffset = ntohs(fSequenceNumberRandomOffset);
++                fSequenceNumberRandomOffset = bswap_16(fSequenceNumberRandomOffset);
+             break;
+         }
+         
+@@ -431,17 +432,17 @@
+     // need to acquire the header info on every pass
+     
+     MOVE_WORD( hdrData.hintFlags, samplePacketPtr + 8);
+-    hdrData.hintFlags = ntohs( hdrData.hintFlags );
++    hdrData.hintFlags = bswap_16( hdrData.hintFlags );
+ 
+     MOVE_WORD( hdrData.dataEntryCount, samplePacketPtr + 10);
+-    hdrData.dataEntryCount = ntohs(hdrData.dataEntryCount);
++    hdrData.dataEntryCount = bswap_16(hdrData.dataEntryCount);
+     
+     hdrData.tlvTimestampOffset = 0;
+     
+     Bool16 tlvOK = false; // reset tlvSize to 0 if the size value or the tlv flag is invalid
+     if( hdrData.hintFlags & 0x4 ) do // Extra Information TLV is present
+     {
+-        hdrData.tlvSize = ntohl( *(UInt32*) (samplePacketPtr + 12) );
++        hdrData.tlvSize = bswap_32( *(UInt32*) (samplePacketPtr + 12) );
+         char* tlvParser = samplePacketPtr + 16; // start of tlv data
+         char* tlvEnd = tlvParser + hdrData.tlvSize;// 1 past the end of tlv data
+         
+@@ -459,9 +460,9 @@
+         // if there is a TLV, parse out the 1 field we currently know about, the 'rtpo' field
+         while (tlvParser + 12 < tlvEnd) // test for the minimum tlv size (size+type+smallest data size)
+         {           
+-            UInt32  fieldSize   = ntohl( *(UInt32*) tlvParser );
+-            UInt32  theType     = ntohl( *(UInt32*) (tlvParser + 4) );
+-            UInt32  theData     = ntohl( *(UInt32*) (tlvParser + 8) ); //data can't be smaller 4 and we only know about rtpo data
++            UInt32  fieldSize   = bswap_32( *(UInt32*) tlvParser );
++            UInt32  theType     = bswap_32( *(UInt32*) (tlvParser + 4) );
++            UInt32  theData     = bswap_32( *(UInt32*) (tlvParser + 8) ); //data can't be smaller 4 and we only know about rtpo data
+ 
+             if (theType == FOUR_CHARS_TO_INT( 'r', 't', 'p', 'o' )) //'rtpo'
+             {
+@@ -479,11 +480,11 @@
+     }   
+ 
+     MOVE_LONG_WORD( hdrData.relativePacketTransmissionTime, samplePacketPtr );  
+-    hdrData.relativePacketTransmissionTime = ntohl(hdrData.relativePacketTransmissionTime);
++    hdrData.relativePacketTransmissionTime = bswap_32(hdrData.relativePacketTransmissionTime);
+     
+     MOVE_WORD( hdrData.rtpHeaderBits, samplePacketPtr + 4);
+     MOVE_WORD( hdrData.rtpSequenceNumber, samplePacketPtr + 6);
+-    hdrData.rtpSequenceNumber = ntohs(hdrData.rtpSequenceNumber);       
++    hdrData.rtpSequenceNumber = bswap_16(hdrData.rtpSequenceNumber);       
+ 
+ }
+ 
+@@ -671,7 +672,7 @@
+     MOVE_WORD( entryCount, buf );
+     //::memcpy(&entryCount, buf, 2);
+     
+-    *numPackets = ntohs(entryCount);
++    *numPackets = bswap_16(entryCount);
+ 
+     return errNoError;
+ }
+@@ -729,21 +730,21 @@
+     trackRefIndex = (SInt8)*(pBuf + 1);
+ 
+     MOVE_WORD( readLength, pBuf + 2);
+-    cacheHintSampleLen = hintMaxRead = readLength = ntohs(readLength);
++    cacheHintSampleLen = hintMaxRead = readLength = bswap_16(readLength);
+     
+     MOVE_LONG_WORD( mediaSampleNumber, pBuf + 4);
+-    mediaSampleNumber = ntohl(mediaSampleNumber);
++    mediaSampleNumber = bswap_32(mediaSampleNumber);
+ 
+     MOVE_LONG_WORD( readOffset, pBuf + 8);
+-    readOffset = ntohl(readOffset);
++    readOffset = bswap_32(readOffset);
+     
+     MOVE_WORD( bytesPerCompressionBlock, pBuf + 12);
+-    bytesPerCompressionBlock = ntohs(bytesPerCompressionBlock);
++    bytesPerCompressionBlock = bswap_16(bytesPerCompressionBlock);
+     if( bytesPerCompressionBlock == 0 )
+         bytesPerCompressionBlock = 1;
+     
+     MOVE_WORD( samplesPerCompressionBlock, pBuf + 14);
+-    samplesPerCompressionBlock = ntohs(samplesPerCompressionBlock);
++    samplesPerCompressionBlock = bswap_16(samplesPerCompressionBlock);
+     if( samplesPerCompressionBlock == 0 )
+         samplesPerCompressionBlock = 1;
+ 
+@@ -1192,7 +1193,7 @@
+         return errInvalidQuickTimeFile;
+     
+     MOVE_WORD( entryCount, (char *)buf + 0);
+-    entryCount = ntohs(entryCount);
++    entryCount = bswap_16(entryCount);
+     if( (packetNumber-1) > entryCount )
+         return errInvalidQuickTimeFile;
+             
+@@ -1257,24 +1258,24 @@
+ 
+     //
+     // Add in the RTP header.
+-    tempInt16 = hdrData.rtpHeaderBits | ntohs(0x8000) /* v2 RTP header */;
++    tempInt16 = hdrData.rtpHeaderBits | bswap_16(0x8000) /* v2 RTP header */;
+     COPY_WORD(pPacketOutBuf, &tempInt16);
+     
+     //TEMP_PRINT_ONE( "QTHintTrack::GetPacket rtpHeaderBits %li.\n", (SInt32)rtpHeaderBits );
+     pPacketOutBuf += 2;
+ 
+-    tempInt16 = htons(hdrData.rtpSequenceNumber);
++    tempInt16 = bswap_16(hdrData.rtpSequenceNumber);
+     COPY_WORD(pPacketOutBuf, &tempInt16);
+     pPacketOutBuf += 2;
+ 
+     tempInt32 = rtpTimestamp;
+     tempInt32 += hdrData.tlvTimestampOffset; // rtpo tlv offset
+ 
+-    tempInt32 = htonl(tempInt32);
++    tempInt32 = bswap_32(tempInt32);
+     COPY_LONG_WORD(pPacketOutBuf, &tempInt32);
+     pPacketOutBuf += 4;
+ 
+-    tempInt32 = htonl(ssrc);
++    tempInt32 = bswap_32(ssrc);
+     COPY_LONG_WORD(pPacketOutBuf, &tempInt32);
+     pPacketOutBuf += 4;
+     
+@@ -1321,7 +1322,7 @@
+                 else
+                     theFrameType = RTPMetaInfoPacket::kPFrameType;
+ 
+-                theFrameType = htons(theFrameType);
++                theFrameType = bswap_16(theFrameType);
+                 this->WriteMetaInfoField(RTPMetaInfoPacket::kFrameTypeField, htcb->fRTPMetaInfoFieldArray[fieldCount], &theFrameType, sizeof(theFrameType), &pPacketOutBuf);
+                 break;
+             }
+@@ -1333,7 +1334,7 @@
+             }
+             case RTPMetaInfoPacket::kSeqNumField:
+             {
+-                tempInt16 = htons(hdrData.rtpSequenceNumber);
++                tempInt16 = bswap_16(hdrData.rtpSequenceNumber);
+                 this->WriteMetaInfoField(RTPMetaInfoPacket::kSeqNumField, htcb->fRTPMetaInfoFieldArray[fieldCount], &tempInt16, sizeof(tempInt16), &pPacketOutBuf);
+                 break;
+             }
+@@ -1365,7 +1366,7 @@
+         {
+             // Sample Mode
+             MOVE_WORD( tempInt16, pSampleBuffer + 2);
+-            tempInt16 = ntohs(tempInt16);
++            tempInt16 = bswap_16(tempInt16);
+ 
+             DEEP_DEBUG_PRINT (( "QTHintTrack::GetPacket - ....Sample entry found (size=%u)\n", tempInt16 ) );
+             packetSize += tempInt16;
+@@ -1402,7 +1403,7 @@
+             
+             // Sample Description Data Mode
+             MOVE_WORD( tempInt16, pSampleBuffer + 2);
+-            tempInt16 = ntohs(tempInt16);
++            tempInt16 = bswap_16(tempInt16);
+ 
+             DEEP_DEBUG_PRINT(("QTHintTrack::GetPacket - ....Sample Description entry found (size=%u)\n", tempInt16));
+             packetSize += tempInt16;
+@@ -1451,7 +1452,7 @@
+         else
+         {
+             // If we do have md, make sure to put the right length in the right place
+-            thePacketDataLen = htons(thePacketDataLen);
++            thePacketDataLen = bswap_16(thePacketDataLen);
+             COPY_WORD(endOfMetaInfo - 2, &thePacketDataLen);
+         }
+     }
+@@ -1469,10 +1470,10 @@
+     {
+         //
+         // Write an uncompressed field
+-        RTPMetaInfoPacket::FieldName theName = htons(RTPMetaInfoPacket::GetFieldNameForIndex(inFieldIndex));
++        RTPMetaInfoPacket::FieldName theName = bswap_16(RTPMetaInfoPacket::GetFieldNameForIndex(inFieldIndex));
+         COPY_WORD(*ioBuffer, &theName);
+         (*ioBuffer)+=2;
+-        UInt16 theLen = htons((UInt16)inFieldLen);
++        UInt16 theLen = bswap_16((UInt16)inFieldLen);
+         COPY_WORD(*ioBuffer, &theLen);
+         (*ioBuffer)+=2;
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTRTPFile.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTRTPFile.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileLib/QTRTPFile.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileLib/QTRTPFile.cpp	2008-05-30 23:57:06.000000000 +0200
+@@ -31,6 +31,8 @@
+ // -------------------------------------
+ // Includes
+ //
++#include <byteswap.h>
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -604,7 +606,7 @@
+         // Verify that this is an SDP atom.
+         fFile->Read(globalSDPTOCEntry->AtomDataPos, (char *)&tempAtomType, 4);
+         
+-        if ( ntohl(tempAtomType) == FOUR_CHARS_TO_INT('s', 'd', 'p', ' ') ) 
++        if ( bswap_32(tempAtomType) == FOUR_CHARS_TO_INT('s', 'd', 'p', ' ') ) 
+         {
+             haveGlobalSDPAtom = true;
+             fSDPFileLength += (UInt32) (globalSDPTOCEntry->AtomDataLength - 4);
+@@ -1178,7 +1180,7 @@
+ 	if (trackEntry->CurPacket) //  we have the packet
+     {
+ 		timeStampP = (UInt32 *)((char *)trackEntry->CurPacket + 4);
+-		rtpTimestamp = ntohl(*timeStampP);
++		rtpTimestamp = bswap_32(*timeStampP);
+     }
+     else
+     {
+@@ -1244,7 +1246,7 @@
+     // Read the sequence number right out of the packet.
+     ::memcpy(&rtpSequenceNumber, (char *)trackEntry->CurPacket + 2, 2);
+ 
+-    return ntohs(rtpSequenceNumber);
++    return bswap_16(rtpSequenceNumber);
+ }
+ 
+ Float64 QTRTPFile::GetNextPacket(char ** outPacket, int * outPacketLength)
+@@ -1297,7 +1299,7 @@
+     
+     //
+     // Remember the sequence number of this packet.
+-    firstPacket->LastSequenceNumber = ntohs(*(UInt16 *)((char *)firstPacket->CurPacket + 2));
++    firstPacket->LastSequenceNumber = bswap_16(*(UInt16 *)((char *)firstPacket->CurPacket + 2));
+     firstPacket->LastSequenceNumber -= (UInt16) (firstPacket->BaseSequenceNumberRandomOffset + firstPacket->FileSequenceNumberRandomOffset + firstPacket->SequenceNumberAdditive);
+ 
+     //
+@@ -1533,10 +1535,10 @@
+     pTimestamp = (UInt32 *)((char *)trackEntry->CurPacket + 4);
+     
+     if( doSeek || (trackEntry->QualityLevel > kAllPackets) )
+-        trackEntry->SequenceNumberAdditive += (trackEntry->LastSequenceNumber + 1) - ntohs(*pSequenceNumber);
++        trackEntry->SequenceNumberAdditive += (trackEntry->LastSequenceNumber + 1) - bswap_16(*pSequenceNumber);
+     
+-    *pSequenceNumber = htons( (SInt16)  (((SInt32) ntohs(*pSequenceNumber)) + trackEntry->BaseSequenceNumberRandomOffset + trackEntry->FileSequenceNumberRandomOffset + trackEntry->SequenceNumberAdditive));
+-    *pTimestamp = htonl(ntohl(*pTimestamp) + trackEntry->BaseTimestampRandomOffset + trackEntry->FileTimestampRandomOffset);
++    *pSequenceNumber = bswap_16( (SInt16)  (((SInt32) bswap_16(*pSequenceNumber)) + trackEntry->BaseSequenceNumberRandomOffset + trackEntry->FileSequenceNumberRandomOffset + trackEntry->SequenceNumberAdditive));
++    *pTimestamp = bswap_32(bswap_32(*pTimestamp) + trackEntry->BaseTimestampRandomOffset + trackEntry->FileTimestampRandomOffset);
+     
+     //
+     // Return the packet.
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileTools/QTBroadcaster.tproj/QTBroadcaster.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileTools/QTBroadcaster.tproj/QTBroadcaster.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileTools/QTBroadcaster.tproj/QTBroadcaster.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileTools/QTBroadcaster.tproj/QTBroadcaster.cpp	2008-05-30 23:44:47.000000000 +0200
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -204,7 +205,7 @@
+         UInt32 value = RTPFile->GetLastPacketTrack()->Cookie2;
+ 
+         in_port_t cookievalue = value;
+-        sin.sin_port = htons( cookievalue  );
++        sin.sin_port = bswap_16( cookievalue  );
+         sin.sin_addr.s_addr = inet_addr(IPAddress);
+         sendto(s, Packet, PacketLength, 0, (struct sockaddr *)&sin, sizeof(struct sockaddr));
+     }
+diff -ur DarwinStreamingSrvr6.0.3-Source/QTFileTools/QTRTPFileTest.tproj/QTRTPFileTest.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileTools/QTRTPFileTest.tproj/QTRTPFileTest.cpp
+--- DarwinStreamingSrvr6.0.3-Source/QTFileTools/QTRTPFileTest.tproj/QTRTPFileTest.cpp	2008-05-06 01:28:58.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/QTFileTools/QTRTPFileTest.tproj/QTRTPFileTest.cpp	2008-05-30 23:45:12.000000000 +0200
+@@ -23,6 +23,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+@@ -203,7 +204,7 @@
+                 break;
+             }
+ 
+-            RTPFile->SetTrackCookies(hinttracks[trackcount], (char *)hinttracks[trackcount], 0);
++            RTPFile->SetTrackCookies(hinttracks[trackcount], (char *)intptr_t(hinttracks[trackcount]), 0);
+             (void)RTPFile->GetSeekTimestamp(hinttracks[trackcount]);
+             trackcount --;
+         }
+@@ -228,7 +229,7 @@
+             }
+ 
+             RTPFile->FindTrackEntry(atoi(*argv), &trackListEntry);
+-            RTPFile->SetTrackCookies(atoi(*argv), (char *)atoi(*argv), 0);
++            RTPFile->SetTrackCookies(atoi(*argv), (char *)intptr_t(atoi(*argv)), 0);
+             (void)RTPFile->GetSeekTimestamp(atoi(*argv));
+             argv++;
+         }
+@@ -293,9 +294,9 @@
+         }
+             
+         memcpy(&RTPSequenceNumber, Packet + 2, 2);
+-        RTPSequenceNumber = ntohs(RTPSequenceNumber);
++        RTPSequenceNumber = bswap_16(RTPSequenceNumber);
+         memcpy(&RTPTimestamp, Packet + 4, 4);
+-        RTPTimestamp = ntohl(RTPTimestamp);
++        RTPTimestamp = bswap_32(RTPTimestamp);
+         
+         if (!hintOnly)
+             if (!silent)
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacket.cpp	2008-05-30 23:45:39.000000000 +0200
+@@ -31,6 +31,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTCPAckPacket.h"
+ #include "RTCPPacket.h"
+ #include "MyAssert.h"
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacketFmt.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacketFmt.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacketFmt.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacketFmt.h	2008-05-30 23:58:15.000000000 +0200
+@@ -31,6 +31,7 @@
+ #ifndef _RTCPACKPACKETFMT_H_
+ #define _RTCPACKPACKETFMT_H_
+ 
++#include <byteswap.h>
+ #include <stdlib.h>
+ #include <arpa/inet.h>
+ #include "StrPtrLen.h"
+@@ -85,15 +86,15 @@
+             //fill in the header
+             RTCPAckHeader &header = *reinterpret_cast<RTCPAckHeader *>(fBuf.Ptr);
+             ::memset(&header, 0, sizeof(header));    
+-            header.ackheader = htons(0x80CC); //(RTP_VERSION << 14) + RTCP_APP; 
+-			header.length = htons(GetPacketLen() / 4 - 1);
+-            header.name = htonl(FOUR_CHARS_TO_INT('q', 't', 'a', 'k'));
++            header.ackheader = bswap_16(0x80CC); //(RTP_VERSION << 14) + RTCP_APP; 
++			header.length = bswap_16(GetPacketLen() / 4 - 1);
++            header.name = bswap_32(FOUR_CHARS_TO_INT('q', 't', 'a', 'k'));
+         }
+ 		
+ 		void		SetSSRC(UInt32 SSRC)
+         {
+             RTCPAckHeader &header = *reinterpret_cast<RTCPAckHeader *>(fBuf.Ptr);
+-            header.SSRC = htonl(SSRC);
++            header.SSRC = bswap_32(SSRC);
+         }
+ 
+         //Can handle duplicates
+@@ -103,8 +104,8 @@
+             ::qsort(AckList.begin(), AckList.size(), sizeof(UInt32), UInt32Compare);
+ 
+             RTCPAckHeader &header = *reinterpret_cast<RTCPAckHeader *>(fBuf.Ptr);
+-			header.SSRC1 = htonl(serverSSRC);
+-            header.seqNum = htons(static_cast<UInt16>(AckList.front()));
++			header.SSRC1 = bswap_32(serverSSRC);
++            header.seqNum = bswap_16(static_cast<UInt16>(AckList.front()));
+ 
+             fBitMaskSize = 0;
+             if (AckList.front() == AckList.back())          //no mask is needed
+@@ -114,7 +115,7 @@
+ 			UInt32 slotsInMaskNeeded = AckList.back() - AckList.front();
+ 			fBitMaskSize = slotsInMaskNeeded % 32 == 0 ? (slotsInMaskNeeded / 32) * 4 : (slotsInMaskNeeded / 32 + 1) * 4;
+ 			
+-			header.length = htons(GetPacketLen() / 4 - 1);
++			header.length = bswap_16(GetPacketLen() / 4 - 1);
+             Assert(fBuf.Len >= GetPacketLen());
+ 
+             UInt32 *mask = reinterpret_cast<UInt32 *>(fBuf.Ptr + sizeof(RTCPAckHeader));
+@@ -135,7 +136,7 @@
+ 			
+ 			//restore big-endianess of the mask
+ 			for(UInt32 i = 0; i < fBitMaskSize / 4; ++i)
+-				mask[i] = htonl(mask[i]);
++				mask[i] = bswap_32(mask[i]);
+         }
+ 
+         //The length of packet written out
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAckPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAckPacket.h	2008-05-30 23:45:47.000000000 +0200
+@@ -34,6 +34,7 @@
+ #ifndef _RTCPACKPACKET_H_
+ #define _RTCPACKPACKET_H_
+ 
++#include <byteswap.h>
+ #include "OSHeaders.h"
+ #include "RTCPAPPPacket.h"
+ #include <stdlib.h>
+@@ -116,12 +117,12 @@
+ 
+ UInt16 RTCPAckPacket::GetAckSeqNum()
+ {
+-    return (UInt16) (ntohl(*(UInt32*)&fRTCPAckBuffer[kAckSeqNumOffset]));
++    return (UInt16) (bswap_32(*(UInt32*)&fRTCPAckBuffer[kAckSeqNumOffset]));
+ }
+ 
+ inline UInt16 RTCPAckPacket::GetPacketLength()
+ {
+-    return (UInt16) ( ntohl(*(UInt32*)fRTCPAckBuffer) & kPacketLengthMask);
++    return (UInt16) ( bswap_32(*(UInt32*)fRTCPAckBuffer) & kPacketLengthMask);
+ }
+ 
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPNADUPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPNADUPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPNADUPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPNADUPacket.cpp	2008-05-30 23:50:26.000000000 +0200
+@@ -31,6 +31,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTCPAPPNADUPacket.h"
+ #include "MyAssert.h"
+ #include "OS.h"
+@@ -131,46 +132,46 @@
+     UInt32  *theWriterStart = (UInt32*)sRTCPTestBuffer;
+     UInt32  *theWriter = (UInt32*)sRTCPTestBuffer;
+ 
+-    *(theWriter++) = htonl(0x81c90007);     // 1 RR  packet header, full report
+-    *(theWriter++) = htonl(0x2935F2D6);     // 1 Sender SSRC = 691401430
+-    *(theWriter++) = htonl(0x6078CE22);     // 1 SSRC_1 = 1618529826
+-    *(theWriter++) = htonl(0x01000001);     // fraction lost | cumulative num packets lost 1% , 1 packet
+-    *(theWriter++) = htonl(0x0000361A);     // extended highest seq number received = 13850
+-    *(theWriter++) = htonl(0x00C7ED4D);     // interarrival jitter = 13102413
+-    *(theWriter++) = htonl(0x00000000);     // LSR last sender report = 0
+-    *(theWriter++) = htonl(0x04625238);     // Delay since last SR (DLSR) = 73552440 (garbage)
+-    
+-    *(theWriter++) = htonl(0x81ca0005);     // 1 SDES  packet header,
+-    *(theWriter++) = htonl(0x2935F2D6);     // 1 Sender SSRC = 691401430
+-    *(theWriter++) = htonl(0x010A5344);     // 1 CNAME = 01, len=10, "SD"
+-    *(theWriter++) = htonl(0x45532043);     // 1 CNAME = "ES C"
+-    *(theWriter++) = htonl(0x4e414d45);     // 1 CNAME = "NAME"
+-    *(theWriter++) = htonl(0x00000000);     // NULL item = end of list + 32bit padding
++    *(theWriter++) = bswap_32(0x81c90007);     // 1 RR  packet header, full report
++    *(theWriter++) = bswap_32(0x2935F2D6);     // 1 Sender SSRC = 691401430
++    *(theWriter++) = bswap_32(0x6078CE22);     // 1 SSRC_1 = 1618529826
++    *(theWriter++) = bswap_32(0x01000001);     // fraction lost | cumulative num packets lost 1% , 1 packet
++    *(theWriter++) = bswap_32(0x0000361A);     // extended highest seq number received = 13850
++    *(theWriter++) = bswap_32(0x00C7ED4D);     // interarrival jitter = 13102413
++    *(theWriter++) = bswap_32(0x00000000);     // LSR last sender report = 0
++    *(theWriter++) = bswap_32(0x04625238);     // Delay since last SR (DLSR) = 73552440 (garbage)
++    
++    *(theWriter++) = bswap_32(0x81ca0005);     // 1 SDES  packet header,
++    *(theWriter++) = bswap_32(0x2935F2D6);     // 1 Sender SSRC = 691401430
++    *(theWriter++) = bswap_32(0x010A5344);     // 1 CNAME = 01, len=10, "SD"
++    *(theWriter++) = bswap_32(0x45532043);     // 1 CNAME = "ES C"
++    *(theWriter++) = bswap_32(0x4e414d45);     // 1 CNAME = "NAME"
++    *(theWriter++) = bswap_32(0x00000000);     // NULL item = end of list + 32bit padding
+     
+     
+      
+-    *(theWriter++) = htonl(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
++    *(theWriter++) = bswap_32(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
+     
+     UInt32  *appPacketLenStart = theWriter;
+     
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
+     
+     // first (typically only) ssrc block
+-    *(theWriter++) = htonl(0x423A35C7); //ssrc = 1111111111
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x423A35C7); //ssrc = 1111111111
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+     
+     // optional 2nd or more ssrc blocks
+-    *(theWriter++) = htonl(0x84746B8E); //ssrc = 222222222
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x84746B8E); //ssrc = 222222222
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+ 
+     UInt16 *packetLenOffsetPtr = &( (UInt16*)theWriterStart)[29];
+-    UInt16  packetLenInWords = htons( ((UInt32*)theWriter - (UInt32*)appPacketLenStart) ) ;
++    UInt16  packetLenInWords = bswap_16( ((UInt32*)theWriter - (UInt32*)appPacketLenStart) ) ;
+     
+     *packetLenOffsetPtr = packetLenInWords;
+-    qtss_printf("packetLenInWords =%lu\n", ntohs(packetLenInWords));
++    qtss_printf("packetLenInWords =%lu\n", bswap_16(packetLenInWords));
+     UInt32 len = (char*)theWriter - (char*)theWriterStart;
+     if (resultPtr)
+         resultPtr->Set(sRTCPTestBuffer, len);
+@@ -181,36 +182,36 @@
+     UInt32  *theWriterStart = (UInt32*)sRTCPTestBuffer;
+     UInt32  *theWriter = (UInt32*)sRTCPTestBuffer;
+ 
+-    *(theWriter++) = htonl(0x80c90007);     // 1 RR  packet header, empty len is ok but could be a full report
+-    *(theWriter++) = htonl(0x2935F2D6);     // 1 SSRC = 691401430
+-    *(theWriter++) = htonl(0x6078CE22);     // 1 SSRC_1 = 1618529826
+-    *(theWriter++) = htonl(0x01000001);     // fraction lost | cumulative num packets lost 1% , 1 packet
+-    *(theWriter++) = htonl(0x0000361A);     // extended highest seq number received = 13850
+-    *(theWriter++) = htonl(0x00C7ED4D);     // interarrival jitter = 13102413
+-    *(theWriter++) = htonl(0x00000000);     // LSR last sender report = 0
+-    *(theWriter++) = htonl(0x04625238);     // Delay since last SR (DLSR) = 73552440 (garbage)
++    *(theWriter++) = bswap_32(0x80c90007);     // 1 RR  packet header, empty len is ok but could be a full report
++    *(theWriter++) = bswap_32(0x2935F2D6);     // 1 SSRC = 691401430
++    *(theWriter++) = bswap_32(0x6078CE22);     // 1 SSRC_1 = 1618529826
++    *(theWriter++) = bswap_32(0x01000001);     // fraction lost | cumulative num packets lost 1% , 1 packet
++    *(theWriter++) = bswap_32(0x0000361A);     // extended highest seq number received = 13850
++    *(theWriter++) = bswap_32(0x00C7ED4D);     // interarrival jitter = 13102413
++    *(theWriter++) = bswap_32(0x00000000);     // LSR last sender report = 0
++    *(theWriter++) = bswap_32(0x04625238);     // Delay since last SR (DLSR) = 73552440 (garbage)
+     
+     
+      
+-    *(theWriter++) = htonl(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
++    *(theWriter++) = bswap_32(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
+     
+     UInt32  *appPacketLenStart = theWriter;
+     
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
+     
+     // first (typically only) ssrc block
+-    *(theWriter++) = htonl(0x423A35C7); //ssrc = 1111111111
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x423A35C7); //ssrc = 1111111111
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+     
+     // optional 2nd or more ssrc blocks
+-    *(theWriter++) = htonl(0x84746B8E); //ssrc = 222222222
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x84746B8E); //ssrc = 222222222
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+ 
+     UInt16 *packetLenOffsetPtr = &( (UInt16*)theWriterStart)[17];
+-    UInt16  packetLenInWords = htons( (UInt32*)theWriter - (UInt32*)appPacketLenStart) ;
++    UInt16  packetLenInWords = bswap_16( (UInt32*)theWriter - (UInt32*)appPacketLenStart) ;
+     
+     *packetLenOffsetPtr = packetLenInWords;
+     
+@@ -224,27 +225,27 @@
+     UInt32  *theWriterStart = (UInt32*)sRTCPTestBuffer;
+     UInt32  *theWriter = (UInt32*)sRTCPTestBuffer;
+ 
+-    *(theWriter++) = htonl(0x80c90000);     // 1 RR  packet header, empty len is ok but could be a full report
++    *(theWriter++) = bswap_32(0x80c90000);     // 1 RR  packet header, empty len is ok but could be a full report
+     
+-    *(theWriter++) = htonl(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
++    *(theWriter++) = bswap_32(0x80CC0000);     // 1 APP packet header, needs len -> assigned beow
+     
+     UInt32  *appPacketLenStart = theWriter;
+     
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
+-    *(theWriter++) = htonl(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('S', 'S', 'R', 'C')); //nadu ssrc
++    *(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('P', 'S', 'S', '0')); //nadu app packet name
+     
+     // first (typically only) ssrc block
+-    *(theWriter++) = htonl(0x423A35C7); //ssrc = 1111111111
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x423A35C7); //ssrc = 1111111111
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+     
+     // optional 2nd or more ssrc blocks
+-    *(theWriter++) = htonl(0x84746B8E); //ssrc = 222222222
+-    *(theWriter++) = htonl(0x2B6756CE); //delay | nsn = 11111 | 22222
+-    *(theWriter++) = htonl(0xFFFFAD9C); //nun | fbs= 31 | 44444
++    *(theWriter++) = bswap_32(0x84746B8E); //ssrc = 222222222
++    *(theWriter++) = bswap_32(0x2B6756CE); //delay | nsn = 11111 | 22222
++    *(theWriter++) = bswap_32(0xFFFFAD9C); //nun | fbs= 31 | 44444
+ 
+     UInt16 *packetLenOffsetPtr = &( (UInt16*)theWriterStart)[3];
+-    UInt16  packetLenInWords = htons( (UInt32*)theWriter - (UInt32*)appPacketLenStart) ;
++    UInt16  packetLenInWords = bswap_16( (UInt32*)theWriter - (UInt32*)appPacketLenStart) ;
+     
+     *packetLenOffsetPtr = packetLenInWords;
+     
+@@ -375,7 +376,7 @@
+     for (; count < fNumBlocks ; count ++)
+     {
+         blockBuffer = fNaduDataBuffer + (count * 3);            
+-        ssrc = (UInt32) ntohl(*(UInt32*)&blockBuffer[kOffsetNaduSSRC]);
++        ssrc = (UInt32) bswap_32(*(UInt32*)&blockBuffer[kOffsetNaduSSRC]);
+         
+         if (ssrc == inSSRC)
+             return count;
+@@ -398,7 +399,7 @@
+         return 0;
+ 
+     UInt32 *blockBufferPtr = fNaduDataBuffer + (index * 3);
+-    UInt32 ssrc = (UInt32) ntohl(*(UInt32*)&blockBufferPtr[kOffsetNaduSSRC]);
++    UInt32 ssrc = (UInt32) bswap_32(*(UInt32*)&blockBufferPtr[kOffsetNaduSSRC]);
+ 
+     return ssrc;
+ 
+@@ -416,7 +417,7 @@
+         return 0;
+         
+     UInt32 *blockBufferPtr = fNaduDataBuffer + (index * 3);
+-    UInt16 delay = (UInt16) ( ( ntohl(*(UInt32*)&blockBufferPtr[kOffsetNaduPlayoutDelay])  & kPlayoutMask) >> 16);
++    UInt16 delay = (UInt16) ( ( bswap_32(*(UInt32*)&blockBufferPtr[kOffsetNaduPlayoutDelay])  & kPlayoutMask) >> 16);
+ 
+     return delay;
+ }
+@@ -433,7 +434,7 @@
+         return 0;
+         
+     UInt32 *blockBufferPtr = fNaduDataBuffer + (index * 3);
+-    UInt16 nsn = (UInt16) ( ntohl(blockBufferPtr[kOffsetNSN]) & kNSNMask );
++    UInt16 nsn = (UInt16) ( bswap_32(blockBufferPtr[kOffsetNSN]) & kNSNMask );
+ 
+     return nsn;
+ }
+@@ -450,7 +451,7 @@
+         return 0;
+         
+     UInt32 *blockBufferPtr = fNaduDataBuffer + (index * 3);
+-    UInt16 nun = (UInt16) ((ntohl(blockBufferPtr[kOffsetNUN]) & kNUNMask) >> 16);
++    UInt16 nun = (UInt16) ((bswap_32(blockBufferPtr[kOffsetNUN]) & kNUNMask) >> 16);
+ 
+     return nun;
+ }
+@@ -467,7 +468,7 @@
+         return 0;
+         
+     UInt32 *blockBufferPtr = fNaduDataBuffer + (index * 3);
+-    UInt16 fbs = (UInt16) ntohl(blockBufferPtr[kOffsetFBS]) & kFBSMask;
++    UInt16 fbs = (UInt16) bswap_32(blockBufferPtr[kOffsetFBS]) & kFBSMask;
+ 
+     return fbs;
+ }
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPPacket.cpp	2008-05-30 23:46:00.000000000 +0200
+@@ -31,6 +31,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTCPAPPPacket.h"
+ #include "MyAssert.h"
+ #include "OS.h"
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPPacket.h	2008-05-30 23:46:06.000000000 +0200
+@@ -34,6 +34,7 @@
+ #ifndef _RTCPAPPPACKET_H_
+ #define _RTCPAPPPACKET_H_
+ 
++#include <byteswap.h>
+ #include "RTCPPacket.h"
+ #include "StrPtrLen.h"
+ #include "ResizeableStringFormatter.h"
+@@ -93,13 +94,13 @@
+              outName[0] = 0;
+    }
+ 
+-   return ntohl(packetName);
++   return bswap_32(packetName);
+ }
+ 
+ 
+ inline UInt32 RTCPAPPPacket::GetAppPacketSSRC()
+ {
+-    return (UInt32) ntohl(*(UInt32*)&(GetPacketBuffer()[kAppSSRCOffset]) ) ;
++    return (UInt32) bswap_32(*(UInt32*)&(GetPacketBuffer()[kAppSSRCOffset]) ) ;
+ }
+ 
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPQTSSPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPQTSSPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPQTSSPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPQTSSPacket.cpp	2008-05-30 23:50:02.000000000 +0200
+@@ -31,6 +31,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTCPAPPQTSSPacket.h"
+ #include "MyAssert.h"
+ #include "OS.h"
+@@ -120,7 +121,7 @@
+         // DMS - There is no guarentee that qtssDataBuffer will be 4 byte aligned, because
+         // individual APP packet fields can be 6 bytes or 4 bytes or 8 bytes. So we have to
+         // use the 4-byte align protection functions. Sparc and MIPS processors will crash otherwise
+-        UInt32 theHeader = ntohl(OS::GetUInt32FromMemory((UInt32*)&qtssDataBuffer[kQTSSItemTypeOffset]));
++        UInt32 theHeader = bswap_32(OS::GetUInt32FromMemory((UInt32*)&qtssDataBuffer[kQTSSItemTypeOffset]));
+         UInt16 itemType = (UInt16)((theHeader & kQTSSItemTypeMask) >> kQTSSItemTypeShift);
+         UInt8 itemVersion = (UInt8)((theHeader & kQTSSItemVersionMask) >> kQTSSItemVersionShift);
+         UInt8 itemLengthInBytes = (UInt8)(theHeader & kQTSSItemLengthMask);
+@@ -144,7 +145,7 @@
+         {
+             case  TW0_CHARS_TO_INT( 'r', 'r' ): //'rr': //'rrcv':
+             {
+-                fReceiverBitRate = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                fReceiverBitRate = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                 qtssDataBuffer += sizeof(fReceiverBitRate);
+                 APPEND_TO_DUMP_ARRAY(", rcvr_bit_rate=%"_U32BITARG_"", fReceiverBitRate);
+             }
+@@ -152,7 +153,7 @@
+             
+             case TW0_CHARS_TO_INT('l', 't'): //'lt':    //'late':
+             {
+-                fAverageLateMilliseconds = ntohs(*(UInt16*)qtssDataBuffer);
++                fAverageLateMilliseconds = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fAverageLateMilliseconds);
+                 APPEND_TO_DUMP_ARRAY(", avg_late=%u", fAverageLateMilliseconds);
+             }
+@@ -160,7 +161,7 @@
+             
+             case TW0_CHARS_TO_INT('l', 's'): // 'ls':   //'loss':
+             {
+-                fPercentPacketsLost = ntohs(*(UInt16*)qtssDataBuffer);
++                fPercentPacketsLost = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fPercentPacketsLost);
+                 APPEND_TO_DUMP_ARRAY(", percent_loss=%u", fPercentPacketsLost);
+             }
+@@ -168,7 +169,7 @@
+             
+             case TW0_CHARS_TO_INT('d', 'l'): //'dl':    //'bdly':
+             {
+-                fAverageBufferDelayMilliseconds = ntohs(*(UInt16*)qtssDataBuffer);
++                fAverageBufferDelayMilliseconds = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fAverageBufferDelayMilliseconds);
+                 APPEND_TO_DUMP_ARRAY(", avg_buf_delay=%u", fAverageBufferDelayMilliseconds);
+             }
+@@ -196,19 +197,19 @@
+                         
+             case TW0_CHARS_TO_INT('e', 'y' ): //'ey':   //'eyes':
+             {
+-                fNumEyes = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                fNumEyes = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                 qtssDataBuffer += sizeof(fNumEyes);             
+                 APPEND_TO_DUMP_ARRAY(", eyes=%"_U32BITARG_"", fNumEyes);
+ 
+                 if (itemLengthInBytes >= 2)
+                 {
+-                    fNumEyesActive = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                    fNumEyesActive = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                     qtssDataBuffer += sizeof(fNumEyesActive);
+                     APPEND_TO_DUMP_ARRAY(", eyes_actv=%"_U32BITARG_"", fNumEyesActive);
+                 }
+                 if (itemLengthInBytes >= 3)
+                 {
+-                    fNumEyesPaused = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                    fNumEyesPaused = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                     qtssDataBuffer += sizeof(fNumEyesPaused);
+                     APPEND_TO_DUMP_ARRAY(", eyes_pausd=%"_U32BITARG_"", fNumEyesPaused);
+                 }
+@@ -217,7 +218,7 @@
+             
+             case TW0_CHARS_TO_INT('p', 'r' ): // 'pr':  //'prcv':
+             {
+-                fTotalPacketsReceived = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                fTotalPacketsReceived = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                 qtssDataBuffer += sizeof(fTotalPacketsReceived);
+                 APPEND_TO_DUMP_ARRAY(", pckts_rcvd=%"_U32BITARG_"", fTotalPacketsReceived);
+             }
+@@ -225,7 +226,7 @@
+             
+             case TW0_CHARS_TO_INT('p', 'd'): //'pd':    //'pdrp':
+             {
+-                fTotalPacketsDropped = ntohs(*(UInt16*)qtssDataBuffer);
++                fTotalPacketsDropped = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fTotalPacketsDropped);
+                 APPEND_TO_DUMP_ARRAY(", pckts_drppd=%u", fTotalPacketsDropped);
+             }
+@@ -233,7 +234,7 @@
+             
+             case TW0_CHARS_TO_INT('p', 'l'): //'pl':    //'p???':
+             {
+-                fTotalPacketsLost = ntohs(*(UInt16*)qtssDataBuffer);
++                fTotalPacketsLost = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fTotalPacketsLost);
+                 APPEND_TO_DUMP_ARRAY(", ttl_pckts_lost=%u", fTotalPacketsLost);
+             }
+@@ -242,7 +243,7 @@
+             
+             case TW0_CHARS_TO_INT('b', 'l'): //'bl':    //'bufl':
+             {
+-                fClientBufferFill = ntohs(*(UInt16*)qtssDataBuffer);
++                fClientBufferFill = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fClientBufferFill);
+                 APPEND_TO_DUMP_ARRAY(", buffr_fill=%u", fClientBufferFill);
+             }
+@@ -251,7 +252,7 @@
+             
+             case TW0_CHARS_TO_INT('f', 'r'): //'fr':    //'frat':
+             {
+-                fFrameRate = ntohs(*(UInt16*)qtssDataBuffer);
++                fFrameRate = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fFrameRate);
+                 APPEND_TO_DUMP_ARRAY(", frame_rate=%u", fFrameRate);
+             }
+@@ -260,7 +261,7 @@
+             
+             case TW0_CHARS_TO_INT('x', 'r'): //'xr':    //'xrat':
+             {
+-                fExpectedFrameRate = ntohs(*(UInt16*)qtssDataBuffer);
++                fExpectedFrameRate = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fExpectedFrameRate);
+                 APPEND_TO_DUMP_ARRAY(", xpectd_frame_rate=%u", fExpectedFrameRate);
+             }
+@@ -269,7 +270,7 @@
+             
+             case TW0_CHARS_TO_INT('d', '#'): //'d#':    //'dry#':
+             {
+-                fAudioDryCount = ntohs(*(UInt16*)qtssDataBuffer);
++                fAudioDryCount = bswap_16(*(UInt16*)qtssDataBuffer);
+                 qtssDataBuffer += sizeof(fAudioDryCount);
+                 APPEND_TO_DUMP_ARRAY(", aud_dry_count=%u", fAudioDryCount);
+             }
+@@ -277,7 +278,7 @@
+             
+             case TW0_CHARS_TO_INT('o', 'b'): //'ob': // overbuffer window size
+             {
+-                fOverbufferWindowSize = ntohl(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
++                fOverbufferWindowSize = bswap_32(OS::GetUInt32FromMemory((UInt32*)qtssDataBuffer));
+                 qtssDataBuffer += sizeof(fOverbufferWindowSize);
+                 APPEND_TO_DUMP_ARRAY(", ovr_buffr_windw_siz=%"_U32BITARG_"", fOverbufferWindowSize);
+             }
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPQTSSPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPQTSSPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPAPPQTSSPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPAPPQTSSPacket.h	2008-05-31 00:02:44.000000000 +0200
+@@ -34,6 +34,7 @@
+ #ifndef _RTCPAPPQTSSPACKET_H_
+ #define _RTCPAPPQTSSPACKET_H_
+ 
++#include <byteswap.h>
+ #include "RTCPAPPPacket.h"
+ #include "StrPtrLen.h"
+ 
+@@ -143,21 +144,21 @@
+ 
+ inline UInt32 RTCPCompressedQTSSPacket::GetQTSSReportSourceID()
+ {
+-    return (UInt32) ntohl( ((UInt32*)this->GetPacketBuffer())[kQTSSReportSourceIDOffset] ) ;
++    return (UInt32) bswap_32( ((UInt32*)this->GetPacketBuffer())[kQTSSReportSourceIDOffset] ) ;
+ }
+ 
+ 
+ inline UInt16 RTCPCompressedQTSSPacket::GetQTSSPacketVersion()
+ {   
+     UInt32 field = ((UInt32*)this->GetPacketBuffer())[kQTSSPacketVersionOffset];
+-    UInt16 vers = (UInt16)   ( ( ntohl(field) & kQTSSPacketVersionMask) >> kQTSSPacketVersionShift );
++    UInt16 vers = (UInt16)   ( ( bswap_32(field) & kQTSSPacketVersionMask) >> kQTSSPacketVersionShift );
+     return vers;
+ }
+ 
+ inline UInt16 RTCPCompressedQTSSPacket::GetQTSSPacketLength()
+ {  
+     UInt32  field = ((UInt32*)this->GetPacketBuffer())[kQTSSPacketLengthOffset];
+-    return (UInt16) ( (UInt32)  ntohl(field)  & kQTSSPacketLengthMask );
++    return (UInt16) ( (UInt32)  bswap_32(field)  & kQTSSPacketLengthMask );
+ }
+ 
+ /*
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPNADUPacketFmt.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPNADUPacketFmt.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPNADUPacketFmt.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPNADUPacketFmt.h	2008-05-30 23:57:32.000000000 +0200
+@@ -31,6 +31,7 @@
+ #ifndef _RTCPNADUPACKETFMT_H_
+ #define _RTCPNADUPACKETFMT_H_
+ 
++#include <byteswap.h>
+ #include "StrPtrLen.h"
+ #include "arpa/inet.h"
+ #include "OSHeaders.h"
+@@ -89,9 +90,9 @@
+             //fill in the header
+             NADUHeader &header = *reinterpret_cast<NADUHeader *>(fBuf.Ptr);
+             ::memset(&header, 0, sizeof(header));
+-            header.naduHeader = htons(0x80CC); //(RTP_VERSION << 14) + RTCP_APP; 
+-  			header.name = htonl(FOUR_CHARS_TO_INT('P', 'S', 'S', '0'));
+-            header.length = htons(GetPacketLen() / 4 - 1);
++            header.naduHeader = bswap_16(0x80CC); //(RTP_VERSION << 14) + RTCP_APP; 
++  			header.name = bswap_32(FOUR_CHARS_TO_INT('P', 'S', 'S', '0'));
++            header.length = bswap_16(GetPacketLen() / 4 - 1);
+         }
+ 		
+ 		//units are in milliseconds and in bytes; use a playoutDelay of kUInt32_Max if the buffer is empty
+@@ -102,22 +103,22 @@
+             ::memset(&nadu, 0, sizeof(NADUBlock));
+ 			
+ 			fNumNADUBlocks++;
+-			reinterpret_cast<NADUHeader *>(fBuf.Ptr)->length = htons(GetPacketLen() / 4 - 1);
++			reinterpret_cast<NADUHeader *>(fBuf.Ptr)->length = bswap_16(GetPacketLen() / 4 - 1);
+ 
+-			nadu.SSRC = htonl(SSRC);
+-			nadu.NSN = htons(static_cast<UInt16>(nextSeqNum));
+-			nadu.NUN = htons(nextUnitNum & 0x1F);
++			nadu.SSRC = bswap_32(SSRC);
++			nadu.NSN = bswap_16(static_cast<UInt16>(nextSeqNum));
++			nadu.NUN = bswap_16(nextUnitNum & 0x1F);
+ 
+ 			//Use reserved value of 0xffff for undefined
+ 			playoutDelay = MIN(0xffff, playoutDelay);
+-			nadu.delay = htons(static_cast<UInt16>(playoutDelay));
++			nadu.delay = bswap_16(static_cast<UInt16>(playoutDelay));
+ 
+ 			//the free buffer space is reported in 64 bytes blocks, and maximum value is 0xffff
+ 			freeBufferSpace = MIN(0xffff, freeBufferSpace / 64);
+-			nadu.FBS = htons(static_cast<UInt16>(freeBufferSpace));
++			nadu.FBS = bswap_16(static_cast<UInt16>(freeBufferSpace));
+ 		}
+ 
+-		void		SetSSRC(UInt32 SSRC)										{ reinterpret_cast<NADUHeader *>(fBuf.Ptr)->SSRC = htonl(SSRC); }
++		void		SetSSRC(UInt32 SSRC)										{ reinterpret_cast<NADUHeader *>(fBuf.Ptr)->SSRC = bswap_32(SSRC); }
+ 
+         //The length of packet written out
+         UInt32      GetPacketLen()                                              { return sizeof(NADUHeader) + sizeof(NADUBlock) * fNumNADUBlocks; }
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPPacket.cpp	2008-05-31 00:02:17.000000000 +0200
+@@ -30,6 +30,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTCPPacket.h"
+ #include "RTCPAckPacket.h"
+ #include "OS.h"
+@@ -44,7 +45,7 @@
+         return false;
+         
+     fReceiverPacketBuffer = inPacketBuffer;
+-    if (RTCP_PACKET_DEBUG) qtss_printf("RTCPPacket::ParsePacket first 4 bytes of packet=%x \n", ntohl( *(UInt32 *)inPacketBuffer));
++    if (RTCP_PACKET_DEBUG) qtss_printf("RTCPPacket::ParsePacket first 4 bytes of packet=%x \n", bswap_32( *(UInt32 *)inPacketBuffer));
+     
+     //the length of this packet can be no less than the advertised length (which is
+     //in 32-bit words, so we must multiply) plus the size of the header (4 bytes)
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPPacket.h	2008-05-30 23:46:17.000000000 +0200
+@@ -36,6 +36,7 @@
+ #ifndef _RTCPPACKET_H_
+ #define _RTCPPACKET_H_
+ 
++#include <byteswap.h>
+ #include <stdlib.h>
+ #include "SafeStdLib.h"
+ #ifndef __Win32__
+@@ -185,14 +186,14 @@
+ 	SInt64 GetNTPTimeStamp()
+ 	{
+ 		UInt32* fieldPtr = (UInt32*)&fReceiverPacketBuffer[kSRPacketNTPTimeStampMSW];
+-		SInt64 timestamp = ntohl(*fieldPtr);
++		SInt64 timestamp = bswap_32(*fieldPtr);
+ 		fieldPtr = (UInt32*)&fReceiverPacketBuffer[kSRPacketNTPTimeStampLSW];
+-		return (timestamp << 32) | ntohl(*fieldPtr);
++		return (timestamp << 32) | bswap_32(*fieldPtr);
+ 	}
+ 	UInt32 GetRTPTimeStamp()
+ 	{
+ 		UInt32* fieldPtr = (UInt32*)&fReceiverPacketBuffer[kSRPacketRTPTimeStamp];
+-		return ntohl(*fieldPtr);
++		return bswap_32(*fieldPtr);
+ 	}
+ protected:
+     enum
+@@ -209,46 +210,46 @@
+ inline int RTCPPacket::GetVersion()
+ {
+     UInt32* theVersionPtr = (UInt32*)&fReceiverPacketBuffer[kVersionOffset];
+-    UInt32 theVersion = ntohl(*theVersionPtr);
++    UInt32 theVersion = bswap_32(*theVersionPtr);
+     return (int) ((theVersion  & kVersionMask) >> kVersionShift);
+ }
+ 
+ inline Bool16 RTCPPacket::GetHasPadding()
+ {
+     UInt32* theHasPaddingPtr = (UInt32*)&fReceiverPacketBuffer[kHasPaddingOffset];
+-    UInt32 theHasPadding = ntohl(*theHasPaddingPtr);
++    UInt32 theHasPadding = bswap_32(*theHasPaddingPtr);
+     return (Bool16) (theHasPadding & kHasPaddingMask);
+ }
+ 
+ inline int RTCPPacket::GetReportCount()
+ {
+     UInt32* theReportCountPtr = (UInt32*)&fReceiverPacketBuffer[kReportCountOffset];
+-    UInt32 theReportCount = ntohl(*theReportCountPtr);
++    UInt32 theReportCount = bswap_32(*theReportCountPtr);
+     return (int) ((theReportCount & kReportCountMask) >> kReportCountShift);
+ }
+ 
+ inline UInt8 RTCPPacket::GetPacketType()
+ {
+     UInt32* thePacketTypePtr = (UInt32*)&fReceiverPacketBuffer[kPacketTypeOffset];
+-    UInt32 thePacketType = ntohl(*thePacketTypePtr);
++    UInt32 thePacketType = bswap_32(*thePacketTypePtr);
+     return (UInt8) ((thePacketType & kPacketTypeMask) >> kPacketTypeShift);
+ }
+ 
+ inline UInt16 RTCPPacket::GetPacketLength()
+ {
+     UInt32* fieldPtr = (UInt32*)&fReceiverPacketBuffer[kPacketLengthOffset];
+-    UInt32 field = ntohl(*fieldPtr);
++    UInt32 field = bswap_32(*fieldPtr);
+     return (UInt16) (field & kPacketLengthMask);
+ }
+ 
+ inline UInt32 RTCPPacket::GetPacketSSRC()
+ {
+     UInt32* fieldPtr = (UInt32*)&fReceiverPacketBuffer[kPacketSourceIDOffset];
+-    UInt32 field = ntohl(*fieldPtr);
++    UInt32 field = bswap_32(*fieldPtr);
+     return field;
+ }
+ 
+-inline SInt16 RTCPPacket::GetHeader(){ return (SInt16) ntohs(*(SInt16*)&fReceiverPacketBuffer[0]) ;}
++inline SInt16 RTCPPacket::GetHeader(){ return (SInt16) bswap_16(*(SInt16*)&fReceiverPacketBuffer[0]) ;}
+ 
+ /**************  RTCPReceiverPacket  inlines **************/
+ inline int RTCPReceiverPacket::RecordOffset(int inReportNum) 
+@@ -259,41 +260,41 @@
+ 
+ inline UInt32 RTCPReceiverPacket::GetReportSourceID(int inReportNum)
+ {
+-    return (UInt32) ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kReportSourceIDOffset]) ;
++    return (UInt32) bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kReportSourceIDOffset]) ;
+ }
+ 
+ inline UInt8 RTCPReceiverPacket::GetFractionLostPackets(int inReportNum)
+ {
+-    return (UInt8) ( (ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kFractionLostOffset]) & kFractionLostMask) >> kFractionLostShift );
++    return (UInt8) ( (bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kFractionLostOffset]) & kFractionLostMask) >> kFractionLostShift );
+ }
+ 
+ 
+ inline UInt32 RTCPReceiverPacket::GetTotalLostPackets(int inReportNum)
+ {
+-    return (ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kTotalLostPacketsOffset]) & kTotalLostPacketsMask );
++    return (bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kTotalLostPacketsOffset]) & kTotalLostPacketsMask );
+ }
+ 
+ 
+ inline UInt32 RTCPReceiverPacket::GetHighestSeqNumReceived(int inReportNum)
+ {
+-    return (UInt32) ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kHighestSeqNumReceivedOffset]) ;
++    return (UInt32) bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kHighestSeqNumReceivedOffset]) ;
+ }
+ 
+ inline UInt32 RTCPReceiverPacket::GetJitter(int inReportNum)
+ {
+-    return (UInt32) ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kJitterOffset]) ;
++    return (UInt32) bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kJitterOffset]) ;
+ }
+ 
+ 
+ inline UInt32 RTCPReceiverPacket::GetLastSenderReportTime(int inReportNum)
+ {
+-    return (UInt32) ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kLastSenderReportOffset]) ;
++    return (UInt32) bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kLastSenderReportOffset]) ;
+ }
+ 
+ 
+ inline UInt32 RTCPReceiverPacket::GetLastSenderReportDelay(int inReportNum)
+ {
+-    return (UInt32) ntohl(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kLastSenderReportDelayOffset]) ;
++    return (UInt32) bswap_32(*(UInt32*)&fRTCPReceiverReportArray[this->RecordOffset(inReportNum)+kLastSenderReportDelayOffset]) ;
+ }
+ 
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPRRPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPRRPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPRRPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPRRPacket.h	2008-05-30 23:50:45.000000000 +0200
+@@ -31,6 +31,7 @@
+ #ifndef _RTCPRRPACKET_H_
+ #define _RTCPRRPACKET_H_
+ 
++#include <byteswap.h>
+ #include "StrPtrLen.h"
+ #include "arpa/inet.h"
+ #include "OSHeaders.h"
+@@ -92,11 +93,11 @@
+             //fill in the header
+             RTCPRRHeader &header = *reinterpret_cast<RTCPRRHeader *>(fBuf.Ptr);
+             ::memset(&header, 0, sizeof(header));
+-            header.rrheader = htons(0x80C9); //(RTP_VERSION << 14) + RTCP_RR;
+-            header.length = htons(GetPacketLen() / 4 - 1);
++            header.rrheader = bswap_16(0x80C9); //(RTP_VERSION << 14) + RTCP_RR;
++            header.length = bswap_16(GetPacketLen() / 4 - 1);
+         }
+ 		
+-		void	SetSSRC(UInt32 SSRC)											{ reinterpret_cast<RTCPRRHeader *>(fBuf.Ptr)->SSRC = htonl(SSRC); }
++		void	SetSSRC(UInt32 SSRC)											{ reinterpret_cast<RTCPRRHeader *>(fBuf.Ptr)->SSRC = bswap_32(SSRC); }
+ 		
+ 		
+ 		void SetCount(UInt16 count) 
+@@ -105,10 +106,10 @@
+ 		  {   return;
+ 		  }
+ 		  
+-		  UInt16 newVal = ntohs(*reinterpret_cast<UInt16 *>(fBuf.Ptr));
++		  UInt16 newVal = bswap_16(*reinterpret_cast<UInt16 *>(fBuf.Ptr));
+ 		  count <<= 8;
+ 		  newVal |= count;
+-		  *reinterpret_cast<UInt16 *>(fBuf.Ptr) =  htons(newVal);
++		  *reinterpret_cast<UInt16 *>(fBuf.Ptr) =  bswap_16(newVal);
+ 		  
+ 		}
+ 		
+@@ -122,22 +123,22 @@
+ 			RTCPReportBlock &reportBlock = *reinterpret_cast<RTCPReportBlock *>(fBuf.Ptr + GetPacketLen());
+ 			::memset(&reportBlock, 0, sizeof(RTCPReportBlock));
+ 
+-			reportBlock.ssrc = htonl(SSRC);
++			reportBlock.ssrc = bswap_32(SSRC);
+ 			reportBlock.fraction = fractionLost;
+-			reportBlock.last_seq = htonl(highestSeqNum);
+-			reportBlock.lsr = htonl(lsr);
+-			reportBlock.dlsr = htonl(dlsr);
++			reportBlock.last_seq = bswap_32(highestSeqNum);
++			reportBlock.lsr = bswap_32(lsr);
++			reportBlock.dlsr = bswap_32(dlsr);
+ 			
+ 			//since the cumulative packets lost is a 24 bit signed integer, its clamped between 0x7fffff and 0x800000)
+ 			if(cumLostPackets > 0x7fffff)
+-				reportBlock.lost = htonl(0x7fffff);
++				reportBlock.lost = bswap_32(0x7fffff);
+ 			else if (cumLostPackets < static_cast<SInt32>(0xff800000))
+-				reportBlock.lost = htonl(0x800000);
++				reportBlock.lost = bswap_32(0x800000);
+ 			else
+-				reportBlock.lost = htonl(cumLostPackets);
++				reportBlock.lost = bswap_32(cumLostPackets);
+ 				
+ 			SetCount(++fNumReportBlocks);
+-			reinterpret_cast<RTCPRRHeader *>(fBuf.Ptr)->length = htons(GetPacketLen() / 4 - 1);
++			reinterpret_cast<RTCPRRHeader *>(fBuf.Ptr)->length = bswap_16(GetPacketLen() / 4 - 1);
+ 		}
+ 
+         //The length of packet written out
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPSRPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPSRPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPSRPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPSRPacket.cpp	2008-05-30 23:46:29.000000000 +0200
+@@ -33,6 +33,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include <string.h>
+ 
+ #include "RTCPSRPacket.h"
+@@ -47,11 +48,11 @@
+     
+     //write the SR & SDES headers
+     UInt32* theSRWriter = (UInt32*)&fSenderReportBuffer;
+-    *theSRWriter = htonl(0x80c80006);
++    *theSRWriter = bswap_32(0x80c80006);
+     theSRWriter += 7; //number of UInt32s in an SR.
+     
+     //SDES length is the length of the CName, plus 2 32bit words, plus the 32bit word for the SSRC
+-    *theSRWriter = htonl(0x81ca0000 + (cNameLen >> 2) + 1);
++    *theSRWriter = bswap_32(0x81ca0000 + (cNameLen >> 2) + 1);
+     ::memcpy(&fSenderReportBuffer[kSenderReportSizeInBytes], theTempCName, cNameLen);
+     fSenderReportSize = kSenderReportSizeInBytes + cNameLen;
+ 
+@@ -72,16 +73,16 @@
+     //
+     // Write the SERVER INFO APP packet
+     UInt32* theAckInfoWriter = (UInt32*)&fSenderReportBuffer[fSenderReportSize];
+-    *theAckInfoWriter = htonl(0x81cc0006);
++    *theAckInfoWriter = bswap_32(0x81cc0006);
+     theAckInfoWriter += 2;
+-    *(theAckInfoWriter++) = htonl(FOUR_CHARS_TO_INT('q', 't', 's', 'i')); // Ack Info APP name
++    *(theAckInfoWriter++) = bswap_32(FOUR_CHARS_TO_INT('q', 't', 's', 'i')); // Ack Info APP name
+     theAckInfoWriter++; // leave space for the ssrc (again)
+-    *(theAckInfoWriter++) = htonl(2); // 2 UInt32s for the 'at' field
+-    *(theAckInfoWriter++) = htonl(FOUR_CHARS_TO_INT( 'a', 't', 0, 4 ));
++    *(theAckInfoWriter++) = bswap_32(2); // 2 UInt32s for the 'at' field
++    *(theAckInfoWriter++) = bswap_32(FOUR_CHARS_TO_INT( 'a', 't', 0, 4 ));
+     fSenderReportWithServerInfoSize = (char*)(theAckInfoWriter+1) - fSenderReportBuffer;    
+     
+     UInt32* theByeWriter = (UInt32*)&fSenderReportBuffer[fSenderReportWithServerInfoSize];
+-    *theByeWriter = htonl(0x81cb0001);
++    *theByeWriter = bswap_32(0x81cb0001);
+ }
+ 
+ UInt32 RTCPSRPacket::GetACName(char* ioCNameBuffer)
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPSRPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPSRPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTCPUtilitiesLib/RTCPSRPacket.h	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTCPUtilitiesLib/RTCPSRPacket.h	2008-05-30 23:46:38.000000000 +0200
+@@ -35,6 +35,7 @@
+ #ifndef __RTCP_SR_PACKET__
+ #define __RTCP_SR_PACKET__
+ 
++#include <byteswap.h>
+ #include "OSHeaders.h"
+ #include "OS.h"
+ #include "MyAssert.h"
+@@ -109,25 +110,25 @@
+ inline void RTCPSRPacket::SetSSRC(UInt32 inSSRC)
+ {
+     // Set SSRC in SR
+-    ((UInt32*)&fSenderReportBuffer)[1] = htonl(inSSRC);
++    ((UInt32*)&fSenderReportBuffer)[1] = bswap_32(inSSRC);
+     
+     // Set SSRC in SDES
+-    ((UInt32*)&fSenderReportBuffer)[8] = htonl(inSSRC);
++    ((UInt32*)&fSenderReportBuffer)[8] = bswap_32(inSSRC);
+     
+     // Set SSRC in SERVER INFO
+     Assert((fSenderReportSize & 3) == 0);
+-    ((UInt32*)&fSenderReportBuffer)[(fSenderReportSize >> 2) + 1] = htonl(inSSRC);
++    ((UInt32*)&fSenderReportBuffer)[(fSenderReportSize >> 2) + 1] = bswap_32(inSSRC);
+ 
+     // Set SSRC in BYE
+     Assert((fSenderReportWithServerInfoSize & 3) == 0);
+-    ((UInt32*)&fSenderReportBuffer)[(fSenderReportWithServerInfoSize >> 2) + 1] = htonl(inSSRC);
++    ((UInt32*)&fSenderReportBuffer)[(fSenderReportWithServerInfoSize >> 2) + 1] = bswap_32(inSSRC);
+ }
+ 
+ inline void RTCPSRPacket::SetClientSSRC(UInt32 inClientSSRC)
+ {
+     //
+     // Set Client SSRC in SERVER INFO
+-    ((UInt32*)&fSenderReportBuffer)[(fSenderReportSize >> 2) + 3] = htonl(inClientSSRC);    
++    ((UInt32*)&fSenderReportBuffer)[(fSenderReportSize >> 2) + 3] = bswap_32(inClientSSRC);    
+ }
+ 
+ inline void RTCPSRPacket::SetNTPTimestamp(SInt64 inNTPTimestamp)
+@@ -142,22 +143,22 @@
+ 
+ inline void RTCPSRPacket::SetRTPTimestamp(UInt32 inRTPTimestamp)
+ {
+-    ((UInt32*)&fSenderReportBuffer)[4] = htonl(inRTPTimestamp);
++    ((UInt32*)&fSenderReportBuffer)[4] = bswap_32(inRTPTimestamp);
+ }
+ 
+ inline void RTCPSRPacket::SetPacketCount(UInt32 inPacketCount)
+ {
+-    ((UInt32*)&fSenderReportBuffer)[5] = htonl(inPacketCount);
++    ((UInt32*)&fSenderReportBuffer)[5] = bswap_32(inPacketCount);
+ }
+ 
+ inline void RTCPSRPacket::SetByteCount(UInt32 inByteCount)
+ {
+-    ((UInt32*)&fSenderReportBuffer)[6] = htonl(inByteCount);
++    ((UInt32*)&fSenderReportBuffer)[6] = bswap_32(inByteCount);
+ }   
+ 
+ inline void RTCPSRPacket::SetAckTimeout(UInt32 inAckTimeoutInMsec)
+ {
+-    ((UInt32*)&fSenderReportBuffer)[(fSenderReportWithServerInfoSize >> 2) - 1] = htonl(inAckTimeoutInMsec);
++    ((UInt32*)&fSenderReportBuffer)[(fSenderReportWithServerInfoSize >> 2) - 1] = bswap_32(inAckTimeoutInMsec);
+ }
+ 
+ #endif //__RTCP_SR_PACKET__
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTPMetaInfoLib/RTPMetaInfoPacket.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTPMetaInfoLib/RTPMetaInfoPacket.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTPMetaInfoLib/RTPMetaInfoPacket.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTPMetaInfoLib/RTPMetaInfoPacket.cpp	2008-05-30 23:46:52.000000000 +0200
+@@ -27,6 +27,7 @@
+ //   Some defs for RTP-Meta-Info payloads.
+ 
+ 
++#include <byteswap.h>
+ #include "RTPMetaInfoPacket.h"
+ #include "MyAssert.h"
+ #include "StringParser.h"
+@@ -93,8 +94,8 @@
+         //
+         // Extract the Field Name and convert it to a Field Index
+         ::memcpy (&fieldNameValue, theFieldP.Ptr, sizeof(UInt16));
+-        FieldIndex theIndex = RTPMetaInfoPacket::GetFieldIndexForName(ntohs(fieldNameValue));
+-//      FieldIndex theIndex = RTPMetaInfoPacket::GetFieldIndexForName(ntohs(*(UInt16*)theFieldP.Ptr));
++        FieldIndex theIndex = RTPMetaInfoPacket::GetFieldIndexForName(bswap_16(fieldNameValue));
++//      FieldIndex theIndex = RTPMetaInfoPacket::GetFieldIndexForName(bswap_16(*(UInt16*)theFieldP.Ptr));
+ 
+         //
+         // Get the Field ID if there is one.
+@@ -153,10 +154,10 @@
+                 break;
+ 
+             ::memcpy(&uInt16Val, theFieldP, sizeof(uInt16Val));
+-            theFieldIndex = this->GetFieldIndexForName(ntohs(uInt16Val));
++            theFieldIndex = this->GetFieldIndexForName(bswap_16(uInt16Val));
+             
+             ::memcpy(&uInt16Val, theFieldP + 2, sizeof(uInt16Val));
+-            theFieldLen = ntohs(uInt16Val);
++            theFieldLen = bswap_16(uInt16Val);
+             theFieldP += 4;
+         }
+         
+@@ -188,7 +189,7 @@
+             }
+             case kFrameTypeField:
+             {
+-                fFrameType = ntohs(*((FrameTypeField*)theFieldP));
++                fFrameType = bswap_16(*((FrameTypeField*)theFieldP));
+                 break;
+             }
+             case kPacketNumField:
+@@ -201,7 +202,7 @@
+             {
+                 
+                 ::memcpy(&uInt16Val, theFieldP, sizeof(uInt16Val));
+-                fSeqNum = ntohs(uInt16Val);
++                fSeqNum = bswap_16(uInt16Val);
+                 break;
+             }
+             case kMediaDataField:
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/ClientSession.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/ClientSession.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/ClientSession.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/ClientSession.cpp	2008-05-30 23:47:13.000000000 +0200
+@@ -31,6 +31,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include <arpa/inet.h>
+ //#include <stdlib.h>
+ #include "ClientSession.h"
+@@ -985,11 +986,11 @@
+ 
+     // RECEIVER REPORT
+ 	/*
+-    *(theWriter++) = htonl(0x81c90007);     // 1 src RR packet
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(0);
+-    *(theWriter++) = htonl(trackStats.fHighestSeqNum == kUInt32_Max ? 0 : trackStats.fHighestSeqNum);				//EHSN
++    *(theWriter++) = bswap_32(0x81c90007);     // 1 src RR packet
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(0);
++    *(theWriter++) = bswap_32(trackStats.fHighestSeqNum == kUInt32_Max ? 0 : trackStats.fHighestSeqNum);				//EHSN
+     *(theWriter++) = 0;                         // don't do jitter yet.
+     *(theWriter++) = 0;                         // don't do last SR timestamp
+     *(theWriter++) = 0;                         // don't do delay since last SR
+@@ -1000,19 +1001,19 @@
+ 	if(fTransportType == kRTSPReliableUDPClientType)
+ 	{
+ 		// APP PACKET - QoS info
+-		*(theWriter++) = htonl(0x80CC000C); 
+-		//*(ia++) = htonl(trk[i].TrackSSRC);
+-		*(theWriter++) = htonl(trackStats.fClientSSRC);
++		*(theWriter++) = bswap_32(0x80CC000C); 
++		//*(ia++) = bswap_32(trk[i].TrackSSRC);
++		*(theWriter++) = bswap_32(trackStats.fClientSSRC);
+ 	// this QTSS changes after beta to 'qtss'
+-		*(theWriter++) = htonl(FOUR_CHARS_TO_INT('Q', 'T', 'S', 'S'));
++		*(theWriter++) = bswap_32(FOUR_CHARS_TO_INT('Q', 'T', 'S', 'S'));
+ 		//*(ia++) = toBigEndian_ulong(trk[i].rcvrSSRC);
+-		*(theWriter++) = htonl(trackStats.fServerSSRC);
+-		*(theWriter++) = htonl(8);          // number of 4-byte quants below
++		*(theWriter++) = bswap_32(trackStats.fServerSSRC);
++		*(theWriter++) = bswap_32(8);          // number of 4-byte quants below
+ 	#define RR 0x72720004
+ 	#define PR 0x70720004
+ 	#define PD 0x70640002
+ 	#define OB 0x6F620004
+-		*(theWriter++) = htonl(RR);
++		*(theWriter++) = bswap_32(RR);
+ 		//unsigned int now, secs;
+ 		//now = microseconds();
+ 		//secs = now - trk[i].last_rtcp_packet_sent_us / USEC_PER_SEC;
+@@ -1020,18 +1021,18 @@
+ 		//  temp = trk[i].bytes_received_since_last_rtcp / secs;
+ 		//else
+ 		//  temp = 0;
+-		//*(ia++) = htonl(temp);
+-		*(theWriter++) = htonl(0);
+-		*(theWriter++) = htonl(PR);
+-		//*(ia++) = htonl(trk[i].rtp_num_received);
+-		*(theWriter++) = htonl(0);
+-		//*(theWriter++) = htonl(PL);
+-		//*(ia++) = htonl(trk[i].rtp_num_lost);
+-		//*(theWriter++) = htonl(0);
+-		*(theWriter++) = htonl(OB);
+-		*(theWriter++) = htonl(fOverbufferWindowSizeInK * 1024);
+-		*(theWriter++) = htonl(PD);
+-		*(theWriter++) = htonl(0);      // should be a short, but we need to pad to a long for the entire RTCP app packet
++		//*(ia++) = bswap_32(temp);
++		*(theWriter++) = bswap_32(0);
++		*(theWriter++) = bswap_32(PR);
++		//*(ia++) = bswap_32(trk[i].rtp_num_received);
++		*(theWriter++) = bswap_32(0);
++		//*(theWriter++) = bswap_32(PL);
++		//*(ia++) = bswap_32(trk[i].rtp_num_lost);
++		//*(theWriter++) = bswap_32(0);
++		*(theWriter++) = bswap_32(OB);
++		*(theWriter++) = bswap_32(fOverbufferWindowSizeInK * 1024);
++		*(theWriter++) = bswap_32(PD);
++		*(theWriter++) = bswap_32(0);      // should be a short, but we need to pad to a long for the entire RTCP app packet
+ 	}
+ 
+ 	char *buf = reinterpret_cast<char *>(theWriter);
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/RTPPacket.h DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/RTPPacket.h
+--- DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/RTPPacket.h	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/RTPPacket.h	2008-05-30 23:49:47.000000000 +0200
+@@ -30,6 +30,7 @@
+ #ifndef _RTPPACKET_H_
+ #define _RTPPACKET_H_
+ 
++#include <byteswap.h>
+ #include "arpa/inet.h"
+ #include "OSHeaders.h"
+ #include "StrPtrLen.h"
+@@ -74,19 +75,19 @@
+         :   fPacket(reinterpret_cast<RTPHeader *>(inPacket)), fLen(inLen)
+         {}
+ 
+-		UInt8		GetPayloadType() const									{ return ntohs(fPacket->rtpheader) & 0x007F; }
+-		UInt8		GetCSRCCount() const									{ return (ntohs(fPacket->rtpheader) & 0x0F00 ) >> 8; }
++		UInt8		GetPayloadType() const									{ return bswap_16(fPacket->rtpheader) & 0x007F; }
++		UInt8		GetCSRCCount() const									{ return (bswap_16(fPacket->rtpheader) & 0x0F00 ) >> 8; }
+ 
+         //The following get functions will convert from network byte order to host byte order.
+         //Conversely the set functions will convert from host byte order to network byte order.
+-        UInt16		GetSeqNum() const                                       { return ntohs(fPacket->seq); }
+-        void		SetSeqNum(UInt16 seqNum)                                { fPacket->seq = htons(seqNum); }
++        UInt16		GetSeqNum() const                                       { return bswap_16(fPacket->seq); }
++        void		SetSeqNum(UInt16 seqNum)                                { fPacket->seq = bswap_16(seqNum); }
+ 
+-        UInt32		GetTimeStamp() const                                    { return ntohl(fPacket->ts); }
+-        void		SetTimeStamp(UInt32 timeStamp)                          { fPacket->ts = htonl(timeStamp); }
++        UInt32		GetTimeStamp() const                                    { return bswap_32(fPacket->ts); }
++        void		SetTimeStamp(UInt32 timeStamp)                          { fPacket->ts = bswap_32(timeStamp); }
+ 
+-        UInt32		GetSSRC() const                                         { return ntohl(fPacket->ssrc); }
+-        void		SetSSRC(UInt32 SSRC)                                    { fPacket->ssrc = htonl(SSRC); }
++        UInt32		GetSSRC() const                                         { return bswap_32(fPacket->ssrc); }
++        void		SetSSRC(UInt32 SSRC)                                    { fPacket->ssrc = bswap_32(SSRC); }
+ 		
+ 		//Includes the variable CSRC portion
+ 		UInt32		GetHeaderLen() const									{ return sizeof(RTPHeader) + GetCSRCCount() * 4; }
+@@ -99,7 +100,7 @@
+ 			Assert(sizeof(RTPHeader) == 12);
+             if (fLen < sizeof(RTPHeader))
+                 return false; 
+-            if ( ( ntohs(fPacket->rtpheader) >> 14)  != RTP_VERSION )
++            if ( ( bswap_16(fPacket->rtpheader) >> 14)  != RTP_VERSION )
+                 return false;
+ 			if (GetHeaderLen() > fLen)
+ 				return false;
+diff -ur DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/RTSPClient.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/RTSPClient.cpp
+--- DarwinStreamingSrvr6.0.3-Source/RTSPClientLib/RTSPClient.cpp	2008-05-06 01:29:00.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/RTSPClientLib/RTSPClient.cpp	2008-05-30 23:47:22.000000000 +0200
+@@ -31,6 +31,7 @@
+ */
+ 
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
+@@ -1261,7 +1262,7 @@
+             header[0] = '$';
+             header[1] = (UInt8)x;
+             UInt16* theLenP = (UInt16*)header;
+-            theLenP[1] = htons(inLen);
++            theLenP[1] = bswap_16(inLen);
+                     
+             //
+             // Build the iovec
+@@ -1301,7 +1302,7 @@
+     {   *getNext = true; // handle a new packet
+         fSendBuffer[0] = '$';
+         fSendBuffer[1] = channel;
+-        UInt16 netlen = htons(len);
++        UInt16 netlen = bswap_16(len);
+         memcpy(&fSendBuffer[2],&netlen,2);
+         memcpy(&fSendBuffer[4],data,len);
+         
+@@ -1397,7 +1398,7 @@
+         // The previous call to this function returned a packet successfully. We've been holding
+         // onto that packet data until now... Now we can blow it away.
+         UInt16* thePacketLenP = (UInt16*)fPacketBuffer;
+-        UInt16 thePacketLen = ntohs(thePacketLenP[1]);
++        UInt16 thePacketLen = bswap_16(thePacketLenP[1]);
+         
+         Assert(fPacketBuffer[0] == '$');
+ 
+@@ -1442,7 +1443,7 @@
+     {
+         Assert(fPacketBuffer[0] == '$');
+         UInt16* thePacketLenP = (UInt16*)fPacketBuffer;
+-        UInt16 thePacketLen = ntohs(thePacketLenP[1]);
++        UInt16 thePacketLen = bswap_16(thePacketLenP[1]);
+         UInt8  channelIndex = fPacketBuffer[1];
+         if (fPacketBufferOffset >= (thePacketLen + kPacketHeaderLen))
+         {
+@@ -1929,7 +1930,7 @@
+     Socket::Initialize();
+     SocketUtils::Initialize();
+ 
+-    UInt32 ipAddr = (UInt32)ntohl(::inet_addr("17.221.41.111"));
++    UInt32 ipAddr = (UInt32)bswap_32(::inet_addr("17.221.41.111"));
+     UInt16 port = 554;
+     StrPtrLen theURL("rtsp://17.221.41.111/mystery.mov");
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/main.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/main.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/main.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/main.cpp	2008-05-30 23:01:50.000000000 +0200
+@@ -216,7 +216,7 @@
+     //(void) ::signal(SIGPIPE, SIG_IGN);
+     struct sigaction act;
+     
+-#if defined(sun) || defined(i386) || defined (__MacOSX__) || defined(__powerpc__) || defined (__osf__) || defined (__sgi_cc__) || defined (__hpux__)
++#if defined(sun) || defined(i386) || defined (__MacOSX__) || defined(__powerpc__) || defined (__osf__) || defined (__sgi_cc__) || defined (__hpux__) || defined(__linux__)
+     sigemptyset(&act.sa_mask);
+     act.sa_flags = 0;
+     act.sa_handler = (void(*)(int))&sigcatcher;
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTPPacketResender.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTPPacketResender.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTPPacketResender.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTPPacketResender.cpp	2008-05-30 23:47:41.000000000 +0200
+@@ -30,6 +30,7 @@
+     
+ */
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ 
+ #include "RTPPacketResender.h"
+@@ -315,7 +316,7 @@
+     // we compute a re-transmit timeout based on the Karns RTT esmitate
+     
+     UInt16* theSeqNumP = (UInt16*)inRTPPacket;
+-    UInt16 theSeqNum = ntohs(theSeqNumP[1]);
++    UInt16 theSeqNum = bswap_16(theSeqNumP[1]);
+     
+     if ( ageLimit > 0 )
+     {   
+@@ -348,7 +349,7 @@
+     else
+     {
+ #if RTP_PACKET_RESENDER_DEBUGGING   
+-        this->logprintf( "packet too old to add: seq# %li, age limit %li, cur late %li, track id %li\n", (SInt32)ntohs( *((UInt16*)(((char*)inRTPPacket)+2)) ), (SInt32)ageLimit, fCurrentPacketDelay, fTrackID );
++        this->logprintf( "packet too old to add: seq# %li, age limit %li, cur late %li, track id %li\n", (SInt32)bswap_16( *((UInt16*)(((char*)inRTPPacket)+2)) ), (SInt32)ageLimit, fCurrentPacketDelay, fTrackID );
+ #endif
+         fNumExpired++;
+     }
+@@ -425,7 +426,7 @@
+         {
+     #if RTP_PACKET_RESENDER_DEBUGGING
+             this->logprintf( "re-tx'd packet acked.  ack num : %li, pack seq #: %li, num resends %li, track id %li, size %li, OS::MSecs %qd\n" \
+-            , (SInt32)inSeqNum, (SInt32)ntohs( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ), (SInt32)theEntry->fNumResends
++            , (SInt32)inSeqNum, (SInt32)bswap_16( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ), (SInt32)theEntry->fNumResends
+             , (SInt32)fTrackID, theEntry->fPacketSize, OS::Milliseconds() );
+     #endif
+         }
+@@ -508,8 +509,8 @@
+                 version &= 0x84;    // grab most sig 2 bits
+                 version = version >> 6; // shift by 6 bits
+                 this->logprintf( "expired:  seq number %li, track id %li (port: %li), vers # %li, pack seq # %li, size: %li, OS::Msecs: %qd\n", \
+-                                    (SInt32)ntohs( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ), fTrackID,  (SInt32) ntohs(fDestPort), \
+-                                    (SInt32)version, (SInt32)ntohs( *((UInt16*)(((char*)theEntry->fPacketData)+2))), theEntry->fPacketSize, OS::Milliseconds() );
++                                    (SInt32)bswap_16( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ), fTrackID,  (SInt32) bswap_16(fDestPort), \
++                                    (SInt32)version, (SInt32)bswap_16( *((UInt16*)(((char*)theEntry->fPacketData)+2))), theEntry->fPacketSize, OS::Milliseconds() );
+     #endif
+                 //
+                 // This packet is expired
+@@ -527,8 +528,8 @@
+ 
+             theEntry->fNumResends++;
+     #if RTP_PACKET_RESENDER_DEBUGGING   
+-            this->logprintf( "re-sent: %li RTO %li, track id %li (port %li), size: %li, OS::Ms %qd\n", (SInt32)ntohs( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ),  curTime - theEntry->fAddedTime, \
+-                    fTrackID, (SInt32) ntohs(fDestPort) \
++            this->logprintf( "re-sent: %li RTO %li, track id %li (port %li), size: %li, OS::Ms %qd\n", (SInt32)bswap_16( *((UInt16*)(((char*)theEntry->fPacketData)+2)) ),  curTime - theEntry->fAddedTime, \
++                    fTrackID, (SInt32) bswap_16(fDestPort) \
+                     , theEntry->fPacketSize, OS::Milliseconds());
+     #endif      
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTPStream.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTPStream.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTPStream.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTPStream.cpp	2008-05-30 23:47:51.000000000 +0200
+@@ -33,6 +33,7 @@
+ 
+ 
+ 
++#include <byteswap.h>
+ #include <stdlib.h>
+ #include <arpa/inet.h>
+ #include "SafeStdLib.h"
+@@ -768,12 +769,12 @@
+     struct sockaddr_in sin;
+     memset(&sin, 0, sizeof(struct sockaddr_in));
+     sin.sin_family = AF_INET;
+-    sin.sin_addr.s_addr = htonl(fMonitorAddr);
++    sin.sin_addr.s_addr = bswap_32(fMonitorAddr);
+     
+     if (fPayloadType == qtssVideoPayloadType)
+-        sin.sin_port = (in_port_t) htons(fMonitorVideoDestPort+RTCPportOffset);
++        sin.sin_port = (in_port_t) bswap_16(fMonitorVideoDestPort+RTCPportOffset);
+     else if (fPayloadType == qtssAudioPayloadType)
+-        sin.sin_port = (in_port_t) htons(fMonitorAudioDestPort+RTCPportOffset);
++        sin.sin_port = (in_port_t) bswap_16(fMonitorAudioDestPort+RTCPportOffset);
+     
+     if (sin.sin_port != 0)
+     {
+@@ -782,7 +783,7 @@
+         {   if (result < 0)
+                 qtss_printf("RTCP Monitor Socket sendto failed\n");
+             else if (0)
+-                qtss_printf("RTCP Monitor Socket sendto port=%hu, packetLen=%"_U32BITARG_"\n", ntohs(sin.sin_port), inLen);
++                qtss_printf("RTCP Monitor Socket sendto port=%hu, packetLen=%"_U32BITARG_"\n", bswap_16(sin.sin_port), inLen);
+         }
+     }
+ 
+@@ -1211,7 +1212,7 @@
+                 this->PrintPacketPrefEnabled( (char*) thePacket->packetData, inLen, (SInt32) RTPStream::rtp);
+ 
+             UInt16* theSeqNumP = (UInt16*)thePacket->packetData;
+-            UInt16 theSeqNum = ntohs(theSeqNumP[1]);
++            UInt16 theSeqNum = bswap_16(theSeqNumP[1]);
+ 			
+ 			//Add the packet sequence number and the timestamp to the list of mappings if doing 3GPP-rate-adaptation.
+ 			fStream3GPP->AddSeqNumTimeMapping(theSeqNum, thePacket->packetTransmitTime);
+@@ -1263,7 +1264,7 @@
+         if (err != QTSS_NoErr)
+             fResender.logprintf("Flow controlled: %qd Overbuffer window: %d. Cur time %qd\n", theCurrentPacketDelay, fSession->GetOverbufferWindow()->AvailableSpaceInWindow(), theTime);
+         else
+-            fResender.logprintf("Sent packet: %d. Overbuffer window: %d Transmit time %qd. Cur time %qd\n", ntohs(theSeqNum[1]), fSession->GetOverbufferWindow()->AvailableSpaceInWindow(), thePacket->packetTransmitTime, theTime);
++            fResender.logprintf("Sent packet: %d. Overbuffer window: %d Transmit time %qd. Cur time %qd\n", bswap_16(theSeqNum[1]), fSession->GetOverbufferWindow()->AvailableSpaceInWindow(), thePacket->packetTransmitTime, theTime);
+ #endif
+         //if (err != QTSS_NoErr)
+         //  qtss_printf("flow controlled\n");
+@@ -1283,7 +1284,7 @@
+ 
+             // Record the RTP timestamp for RTCPs
+             UInt32* timeStampP = (UInt32*)(thePacket->packetData);
+-            fLastRTPTimestamp = ntohl(timeStampP[1]);
++            fLastRTPTimestamp = bswap_32(timeStampP[1]);
+             
+             //stream statistics
+             fPacketCount++;
+@@ -1786,9 +1787,9 @@
+ void RTPStream::PrintRTP(char* packetBuff, UInt32 inLen)
+ {
+   
+-    UInt16 sequence = ntohs( ((UInt16*)packetBuff)[1]);
+-    UInt32 timestamp = ntohl( ((UInt32*)packetBuff)[1]);
+-    UInt32 ssrc = ntohl( ((UInt32*)packetBuff)[2]);
++    UInt16 sequence = bswap_16( ((UInt16*)packetBuff)[1]);
++    UInt32 timestamp = bswap_32( ((UInt32*)packetBuff)[1]);
++    UInt32 ssrc = bswap_32( ((UInt32*)packetBuff)[2]);
+     
+      
+        
+@@ -1819,7 +1820,7 @@
+      UInt32* theReport = (UInt32*)packetBuff;
+     
+     theReport++;
+-    UInt32 ssrc = htonl(*theReport);
++    UInt32 ssrc = bswap_32(*theReport);
+     
+     theReport++;
+     SInt64 ntp = 0;
+@@ -1828,7 +1829,7 @@
+     time_t theTime = OS::Time1900Fixed64Secs_To_UnixTimeSecs(ntp);
+                     
+     theReport += 2;
+-    UInt32 timestamp = ntohl(*theReport);
++    UInt32 timestamp = bswap_32(*theReport);
+     Float32 theTimeInSecs = 0.0;
+ 
+     if (fFirstTimeStamp == 0)
+@@ -1838,10 +1839,10 @@
+         theTimeInSecs = (Float32) (timestamp - fFirstTimeStamp) /  (Float32) fTimescale;
+     
+     theReport++;        
+-    UInt32 packetcount = ntohl(*theReport);
++    UInt32 packetcount = bswap_32(*theReport);
+     
+     theReport++;
+-    UInt32 bytecount = ntohl(*theReport);          
++    UInt32 bytecount = bswap_32(*theReport);          
+     
+     StrPtrLen   *payloadStr = this->GetValue(qtssRTPStrPayloadName);
+     if (payloadStr && payloadStr->Len > 0)
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPRequestInterface.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPRequestInterface.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPRequestInterface.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPRequestInterface.cpp	2008-05-30 23:48:14.000000000 +0200
+@@ -35,6 +35,7 @@
+ 
+ //INCLUDES:
+ #ifndef __Win32__
++#include <byteswap.h>
+ #include <sys/types.h>
+ #include <sys/uio.h>
+ #endif
+@@ -443,7 +444,7 @@
+         
+         UInt32 ssrcVal = 0;
+         ::sscanf(theCString, "%"_U32BITARG_"", &ssrcVal);
+-        ssrcVal = htonl(ssrcVal);
++        ssrcVal = bswap_32(ssrcVal);
+         
+         StrPtrLen hexSSRC(QTSSDataConverter::ValueToString( &ssrcVal, sizeof(ssrcVal), qtssAttrDataTypeUnknown));
+         OSCharArrayDeleter hexStrDeleter(hexSSRC.Ptr);
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPRequestStream.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPRequestStream.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPRequestStream.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPRequestStream.cpp	2008-05-30 23:48:21.000000000 +0200
+@@ -32,6 +32,7 @@
+ */
+ 
+ 
++#include <byteswap.h>
+ #include "RTSPRequestStream.h"
+ #include "StringParser.h"
+ #include "OSMemory.h"
+@@ -163,7 +164,7 @@
+             if (fRequest.Len < 4)
+                 continue;
+             UInt16* dataLenP = (UInt16*)fRequest.Ptr;
+-            UInt32 interleavedPacketLen = ntohs(dataLenP[1]) + 4;
++            UInt32 interleavedPacketLen = bswap_16(dataLenP[1]) + 4;
+             if (interleavedPacketLen > fRequest.Len)
+                 continue;
+                 
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPSession.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPSession.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPSession.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPSession.cpp	2008-05-31 00:03:01.000000000 +0200
+@@ -34,6 +34,7 @@
+ #define __RTSP_AUTH_DEBUG__ 0
+ #define debug_printf if (__RTSP_AUTH_DEBUG__) qtss_printf
+ 
++#include <byteswap.h>
+ #include "RTSPSession.h"
+ #include "RTSPRequest.h"
+ #include "QTSServerInterface.h"
+@@ -1556,7 +1557,7 @@
+                     QTSSDataConverter::ConvertCHexStringToBytes(tempString.Ptr,
+                                                         &ncValue,
+                                                         &bufSize);
+-                    ncValue = ntohl(ncValue);
++                    ncValue = bswap_32(ncValue);
+                                                         
+                 }
+                 // nonce count must not be repeated by the client
+diff -ur DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPSessionInterface.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPSessionInterface.cpp
+--- DarwinStreamingSrvr6.0.3-Source/Server.tproj/RTSPSessionInterface.cpp	2008-05-06 01:28:59.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/Server.tproj/RTSPSessionInterface.cpp	2008-05-30 23:48:28.000000000 +0200
+@@ -31,6 +31,7 @@
+ 
+ */
+ 
++#include <byteswap.h>
+ #include "atomic.h"
+ 
+ #include "RTSPSessionInterface.h"
+@@ -332,7 +333,7 @@
+             // write direct to stream
+             rih.header = '$';
+             rih.channel = channel;
+-            rih.len = htons( (UInt16)inLen);
++            rih.len = bswap_16( (UInt16)inLen);
+             
+             iov[1].iov_base = (char*)&rih;
+             iov[1].iov_len = sizeof(rih);
+@@ -357,11 +358,11 @@
+             fTCPCoalesceBuffer[fNumInCoalesceBuffer] = channel;
+             fNumInCoalesceBuffer++;
+             
+-            //*((short*)&fTCPCoalesceBuffer[fNumInCoalesceBuffer]) = htons(inLen);
++            //*((short*)&fTCPCoalesceBuffer[fNumInCoalesceBuffer]) = bswap_16(inLen);
+             // if we ever turn TCPCoalesce back on, this should be optimized
+             // for processors w/o alignment restrictions as above.
+             
+-            SInt16  pcketLen = htons( (UInt16) inLen);
++            SInt16  pcketLen = bswap_16( (UInt16) inLen);
+             ::memcpy( &fTCPCoalesceBuffer[fNumInCoalesceBuffer], &pcketLen, 2 );
+             fNumInCoalesceBuffer += 2;
+             
+diff -ur DarwinStreamingSrvr6.0.3-Source/StreamingLoadTool/Makefile.POSIX DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingLoadTool/Makefile.POSIX
+--- DarwinStreamingSrvr6.0.3-Source/StreamingLoadTool/Makefile.POSIX	2008-05-24 02:32:03.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingLoadTool/Makefile.POSIX	2008-05-31 11:16:47.000000000 +0200
+@@ -61,6 +61,7 @@
+ 
+ clean:
+ 	rm -f $(CFILES:.c=.o) $(CPPFILES:.cpp=.o)
++	rm -f StreamingLoadTool
+ 
+ .SUFFIXES: .cpp .c .o
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/StreamingLoadTool/StreamingLoadTool.cpp DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingLoadTool/StreamingLoadTool.cpp
+--- DarwinStreamingSrvr6.0.3-Source/StreamingLoadTool/StreamingLoadTool.cpp	2008-05-24 02:22:13.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingLoadTool/StreamingLoadTool.cpp	2008-05-30 23:59:56.000000000 +0200
+@@ -28,6 +28,7 @@
+ 	Contains:       Tool that simulates streaming movie load
+ */
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <sys/types.h>
+@@ -135,7 +136,7 @@
+ #ifndef __Win32__
+ 	struct sigaction act;
+ 	
+-#if defined(sun) || defined(i386) || defined (__MacOSX__) || defined(__powerpc__) || defined (__osf__) || defined (__sgi_cc__) || defined (__hpux__)
++#if defined(sun) || defined(i386) || defined (__MacOSX__) || defined(__powerpc__) || defined (__osf__) || defined (__sgi_cc__) || defined (__hpux__) || defined (__linux__)
+     sigemptyset(&act.sa_mask);
+     act.sa_flags = 0;
+     act.sa_handler = (void(*)(int))&sigcatcher;
+@@ -913,7 +914,7 @@
+ 		char theAddrBuf[50];
+ 		StrPtrLen theAddrBufPtr(theAddrBuf, 50);
+ 		struct in_addr theAddr;
+-		theAddr.s_addr = htonl(ioIPAddrArray[count]);
++		theAddr.s_addr = bswap_32(ioIPAddrArray[count]);
+ 		
+ 		SocketUtils::ConvertAddrToString(theAddr, &theAddrBufPtr);
+ 
+@@ -1015,7 +1016,7 @@
+ 		struct hostent* theHostent = ::gethostbyname(theDNSName);
+ 		
+ 		if (theHostent != NULL)
+-			ioIPAddrs[x] = ntohl(*(UInt32*)(theHostent->h_addr_list[0]));
++			ioIPAddrs[x] = bswap_32(*(UInt32*)(theHostent->h_addr_list[0]));
+ 		else
+ 			ioIPAddrs[x] = SocketUtils::ConvertStringToAddr(theDNSName);
+ 		
+@@ -1117,7 +1118,7 @@
+ 	{
+ 		UInt32 theReason = inSession->GetReasonForDying();
+ 		in_addr theAddr;
+-		theAddr.s_addr = htonl(inSession->GetSocket()->GetHostAddr());
++		theAddr.s_addr = bswap_32(inSession->GetSocket()->GetHostAddr());
+ 		char* theAddrStr = ::inet_ntoa(theAddr);
+ 		
+ 		//
+diff -ur DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/Makefile.POSIX DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/Makefile.POSIX
+--- DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/Makefile.POSIX	2007-11-16 06:16:39.000000000 +0100
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/Makefile.POSIX	2008-05-31 11:02:10.000000000 +0200
+@@ -15,6 +15,7 @@
+ 
+ CCFLAGS += -I.
+ CCFLAGS += -I..
++CCFLAGS += -I../CommonUtilitiesLib
+ 
+ C++FLAGS = $(CCFLAGS)
+ 
+diff -ur DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/proxy.c DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/proxy.c
+--- DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/proxy.c	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/proxy.c	2008-05-31 11:02:38.000000000 +0200
+@@ -29,6 +29,7 @@
+  *
+  */
+ 
++#include <byteswap.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -56,6 +57,7 @@
+ #include "./proxy_plat.h"
+ #include "util.h"
+ #include "proxy.h"
++#include "OSHeaders.h"
+ 
+ #include <unistd.h>
+ 
+@@ -862,7 +864,7 @@
+     }
+     *cmd = '\0';
+     if (gVerbose)
+-        printf("%x\ncommand str=%s\ncommand count with term=%d\n",*cmd, firstCmdChar, (cmd - firstCmdChar) + 1);
++        printf("%x\ncommand str=%s\ncommand count with term=%"_SPOINTERSIZEARG_"\n",*cmd, firstCmdChar, (cmd - firstCmdChar) + 1);
+      
+     if (strn_casecmp(p, " rtsp://", 8) != 0)
+         return 0;
+@@ -877,7 +879,7 @@
+     }
+     *server = '\0';
+      if (gVerbose)
+-        printf("%x\nserver str=%s\nserver count with term=%d\n",*server, firstServerChar, (server - firstServerChar) + 1);
++        printf("%x\nserver str=%s\nserver count with term=%"_SPOINTERSIZEARG_"\n",*server, firstServerChar, (server - firstServerChar) + 1);
+ 
+     return 1;
+ }
+@@ -1821,7 +1823,7 @@
+                 temp[num] = '\0';
+                 range = atoi(line + pmatch[2].rm_so);
+                 //name_to_ip_num(temp, &ip, false);
+-                ip = ntohl(inet_addr(temp));
++                ip = bswap_32(inet_addr(temp));
+                 if (gVerbose)
+                     printf("Allow connections from %s/%d\n", ip_to_string(ip), range);
+                 add_allow_subnet(ip, range);
+@@ -1836,7 +1838,7 @@
+                 int port = atoi(line + pmatch[2].rm_so);
+ 
+                     if(pmatch[1].rm_so==-1)
+-                  bindaddr.s_addr= (in_addr_t) htonl(ANY_ADDRESS);
++                  bindaddr.s_addr= (in_addr_t) bswap_32(ANY_ADDRESS);
+                 else
+                   {
+                     *(line+pmatch[1].rm_eo)='\0';
+@@ -1849,7 +1851,7 @@
+                             printf("listen: failed to parse IP address %s\n",line+pmatch[1].rm_so);
+               }
+ 
+-                add_rtsp_port_listener( (int) ntohl(bindaddr.s_addr),port);
++                add_rtsp_port_listener( (int) bswap_32(bindaddr.s_addr),port);
+             }
+             else if (regexec(&regexpPortRange, line, 3, pmatch, 0) == 0) {
+                 int minPort, maxPort;
+diff -ur DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/proxy_unix.c DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/proxy_unix.c
+--- DarwinStreamingSrvr6.0.3-Source/StreamingProxy.tproj/proxy_unix.c	2008-05-06 01:28:57.000000000 +0200
++++ DarwinStreamingSrvr6.0.3-Source.x86_64/StreamingProxy.tproj/proxy_unix.c	2008-05-30 23:49:17.000000000 +0200
+@@ -29,6 +29,7 @@
+ */
+ 
+  
++#include <byteswap.h>
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -113,7 +114,7 @@
+         *pb->result = -1;
+         pthread_exit(NULL);
+     } while(0);
+-    id = ntohl(((struct in_addr *)(hent->h_addr_list[0]))->s_addr);
++    id = bswap_32(((struct in_addr *)(hent->h_addr_list[0]))->s_addr);
+     *pb->result = id;
+     free(pb);
+     pthread_exit(NULL);
+@@ -155,7 +156,7 @@
+ 
+     tryAgain ++;
+     if ( inet_aton( name, &addr ) )
+-    {   *ip = ntohl( addr.s_addr );
++    {   *ip = bswap_32( addr.s_addr );
+         add_to_IP_cache(name, *ip ); 
+         return 0;
+     }
+@@ -168,7 +169,7 @@
+         add_to_IP_cache(name, -1);
+         return -1;
+     }
+-    *ip = ntohl(((struct in_addr *) (hent->h_addr_list[0]))->s_addr);
++    *ip = bswap_32(((struct in_addr *) (hent->h_addr_list[0]))->s_addr);
+     add_to_IP_cache(name, *ip);
+     return 0;
+ }
+@@ -188,8 +189,8 @@
+     if (status >= 0) 
+         {
+         if (port)
+-            *port = ntohs(remAddr.sin_port);
+-        return ntohl(remAddr.sin_addr.s_addr);
++            *port = bswap_16(remAddr.sin_port);
++        return bswap_32(remAddr.sin_addr.s_addr);
+     }
+     return -1;
+ }
+@@ -207,8 +208,8 @@
+     if (status >= 0) 
+         {
+         if (port)
+-                    *port = ntohs(remAddr.sin_port);
+-        return ntohl(remAddr.sin_addr.s_addr);
++                    *port = bswap_16(remAddr.sin_port);
++        return bswap_32(remAddr.sin_addr.s_addr);
+     }
+     return -1;
+ }
+@@ -243,7 +244,7 @@
+         }
+         return -1;
+     }
+-    __local_ip_address = ntohl(((struct in_addr *)hent->h_addr)->s_addr);
++    __local_ip_address = bswap_32(((struct in_addr *)hent->h_addr)->s_addr);
+     return __local_ip_address;
+ }
+ 
+@@ -397,8 +398,8 @@
+         
+     memset(&sin, 0, sizeof(sin));
+     sin.sin_family = AF_INET;
+-    sin.sin_port = htons(port);
+-    sin.sin_addr.s_addr = htonl(address);
++    sin.sin_port = bswap_16(port);
++    sin.sin_addr.s_addr = bswap_32(address);
+     return bind(skt, (struct sockaddr*)&sin, sizeof(sin));
+ }
+ 
+@@ -454,8 +455,8 @@
+     
+     memset(&sin, 0, sizeof(sin));
+     sin.sin_family = AF_INET;
+-    sin.sin_port = htons(port);
+-    sin.sin_addr.s_addr = htonl(address);;
++    sin.sin_port = bswap_16(port);
++    sin.sin_addr.s_addr = bswap_32(address);;
+     return connect(skt, (struct sockaddr*)&sin, sizeof(sin));
+ }
+ 
+@@ -467,7 +468,7 @@
+     memset(&localAddr, 0, sizeof(localAddr));
+     
+     err = getsockname(skt, (struct sockaddr*)&localAddr, &len);
+-    return ntohl(localAddr.sin_addr.s_addr);
++    return bswap_32(localAddr.sin_addr.s_addr);
+ }
+ 
+ /**********************************************/
+@@ -482,9 +483,9 @@
+     ret = recvfrom(socket, buf, (size_t) amt, 0, (struct sockaddr*)&sin, &len);
+     if (ret != -1) {
+         if (fromip)
+-            *fromip = ntohl(sin.sin_addr.s_addr);
++            *fromip = bswap_32(sin.sin_addr.s_addr);
+         if (fromport)
+-            *fromport = ntohs(sin.sin_port);
++            *fromport = bswap_16(sin.sin_port);
+     }
+     return ret;
+ }
+@@ -496,8 +497,8 @@
+     
+     memset(&sin, 0, sizeof(sin));
+     sin.sin_family = AF_INET;
+-    sin.sin_port = htons(port);
+-    sin.sin_addr.s_addr = htonl(address);
++    sin.sin_port = bswap_16(port);
++    sin.sin_addr.s_addr = bswap_32(address);
+     return sendto(skt, buf, (size_t) amt, 0, (struct sockaddr*)&sin, sizeof(sin));
+ }
+ 
