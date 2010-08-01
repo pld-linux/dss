@@ -3,7 +3,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.10
+Release:	0.11
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -108,6 +108,8 @@ cp -p %{SOURCE2} .
 	s|/var/streaming/AdminHtml|%{_datadir}/%{name}/AdminHtml|g
 	s|/var/streaming/logs|/var/log/%{name}|g
 	s|/var/streaming/|/var/lib/%{name}/|g
+    s|<PREF NAME="run_user_name"></PREF>|<PREF NAME="run_user_name">qtss</PREF>|
+    s|<PREF NAME="run_group_name"></PREF>|<PREF NAME="run_group_name">qtss</PREF>|
 '	DSS_MakeRoot streamingserver.xml-POSIX \
 	WebAdmin/src/streamingadminserver.pl \
 	WebAdmin/WebAdminHtml/adminprotocol-lib.pl
