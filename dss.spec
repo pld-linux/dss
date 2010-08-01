@@ -3,7 +3,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.9
+Release:	0.10
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -151,6 +151,9 @@ install -d $RPM_BUILD_ROOT{/etc/rc.d/init.d,/var/lib/%{name},%{_mandir}/man{1,8}
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
 
+# avoid extension
+mv $RPM_BUILD_ROOT%{_sbindir}/streamingadminserver{.pl,}
+
 # utils
 install -p QTFileTools/QTBroadcaster.tproj/QTBroadcaster $RPM_BUILD_ROOT%{_bindir}
 install -p QTFileTools/QTFileInfo.tproj/QTFileInfo $RPM_BUILD_ROOT%{_bindir}
@@ -187,7 +190,7 @@ cp -a Documentation/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 cp -a Documentation/man/qtss/*.1 $RPM_BUILD_ROOT%{_mandir}/man1
 cp -a Documentation/man/qtss/createuserstreamingdir.8 $RPM_BUILD_ROOT%{_mandir}/man8
 cp -a Documentation/man/qtss/QuickTimeStreamingServer.8 $RPM_BUILD_ROOT%{_mandir}/man8/DarwinStreamingServer.8
-cp -a Documentation/man/qtss/streamingadminserver.pl.8 $RPM_BUILD_ROOT%{_mandir}/man8
+cp -a Documentation/man/qtss/streamingadminserver.pl.8 $RPM_BUILD_ROOT%{_mandir}/man8/streamingadminserver.8
 rm $RPM_BUILD_ROOT/var/lib/%{name}/3rdPartyAcknowledgements.rtf
 rm $RPM_BUILD_ROOT/var/lib/%{name}/readme.txt
 
@@ -263,7 +266,7 @@ fi
 %attr(755,root,root) %{_bindir}/qtpasswd
 
 %attr(755,root,root) %{_sbindir}/DarwinStreamingServer
-%attr(755,root,root) %{_sbindir}/streamingadminserver.pl
+%attr(755,root,root) %{_sbindir}/streamingadminserver
 
 %{_mandir}/man1/*
 %{_mandir}/man8/*
