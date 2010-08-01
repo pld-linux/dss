@@ -35,7 +35,7 @@ start() {
 	fi
 
 	msg_starting "DSS Admin"
-	daemon /usr/sbin/dss-admin
+	daemon /usr/sbin/streamingadminserver
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/dss-admin
 }
@@ -48,7 +48,7 @@ stop() {
 
 	# Stop daemons.
 	msg_stopping "DSS Admin"
-	killproc --pidfile /var/run/dss-admin.pid streamingadminserver -TERM
+	killproc --pidfile /var/run/streamingadminserver.pid streamingadminserver -TERM
 	rm -f /var/lock/subsys/dss-admin
 }
 
@@ -83,7 +83,7 @@ case "$1" in
 	condrestart 7
 	;;
   status)
-	status --pidfile /var/run/dss-admin.pid streamingadminserver
+	status --pidfile /var/run/streamingadminserver.pid streamingadminserver
 	RETVAL=$?
 	;;
   *)
