@@ -1,7 +1,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.1
+Release:	0.2
 License:	Apple Public Source License
 Group:		Applications
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -106,30 +106,37 @@ Sample files for the Darwin Streaming Server.
 %patch3 -p1
 
 # patch streamingadminserver.pl
-%{__sed} -i -e  "s|/usr/local/|%{_prefix}/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/etc/streaming/|%{_sysconfdir}/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/var/streaming/logs/|%{_localstatedir}/log/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/var/streaming/|%{_localstatedir}/lib/dss/|g" WebAdmin/src/streamingadminserver.pl
-%{__sed} -i -e  "s|/usr/local/|%{_prefix}/|g" WebAdmin/src/streamingadminserver.pl
+%{__sed} -i.bak -e  '
+	s|/''usr/local/movies|%{_localstatedir}/lib/%{name}/movies|g
+	s|/''usr/local/sbin/StreamingServerModules|%{_libdir}/%{name}/|g
+	s|/''usr/local/|%{_prefix}/|g
+	s|/etc/streaming|%{_sysconfdir}/%{name}|g
+	s|/var/streaming/logs/|%{_localstatedir}/log/%{name}/|g
+	s|/var/streaming/|%{_localstatedir}/lib/%{name}/|g
+'	DSS_MakeRoot streamingserver.xml-POSIX \
+	WebAdmin/src/streamingadminserver.pl \
+	WebAdmin/WebAdminHtml/adminprotocol-lib.pl
 
 # patch manpages
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Config/|%{_sysconfdir}/dss/|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Modules|%{_libdir}/dss|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Movies|%{_localstatedir}/dss/movies|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Playlists|%{_localstatedir}/lib/dss/playlists|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Logs|%{_localstatedir}/log/dss|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|/Library/QuickTimeStreaming/Docs|%{_docdir}/%{name}-%{version}|g" Documentation/man/qtss/*
-%{__sed} -i -e  "s|QuickTimeStreamingServer|DarwinStreamingServer|g" Documentation/man/qtss/*
+%{__sed} -i -e  '
+	s|/Library/QuickTimeStreaming/Config/|%{_sysconfdir}/%{name}/|g
+	s|/Library/QuickTimeStreaming/Modules|%{_libdir}/%{name}|g
+	s|/Library/QuickTimeStreaming/Movies|%{_localstatedir}/lib/%{name}/movies|g
+	s|/Library/QuickTimeStreaming/Playlists|%{_localstatedir}/lib/%{name}/playlists|g
+	s|/Library/QuickTimeStreaming/Logs|%{_localstatedir}/log/%{name}|g
+	s|/Library/QuickTimeStreaming/Docs|%{_docdir}/%{name}-%{version}|g
+	s|QuickTimeStreamingServer|DarwinStreamingServer|g
+' Documentation/man/qtss/*
 
-cat > defaultPaths.h << EOF
+cat > defaultPaths.h << 'EOF'
 #define DEFAULTPATHS_DIRECTORY_SEPARATOR	"/"
-#define DEFAULTPATHS_ROOT_DIR			"%{_localstatedir}/lib/dss/"
-#define DEFAULTPATHS_ETC_DIR			"%{_sysconfdir}/dss/"
+#define DEFAULTPATHS_ROOT_DIR			"%{_localstatedir}/lib/%{name}/"
+#define DEFAULTPATHS_ETC_DIR			"%{_sysconfdir}/%{name}/"
 #define DEFAULTPATHS_ETC_DIR_OLD		"%{_sysconfdir}/"
-#define DEFAULTPATHS_SSM_DIR			"%{_libdir}/dss/"
-#define DEFAULTPATHS_LOG_DIR			"%{_localstatedir}/log/dss/"
+#define DEFAULTPATHS_SSM_DIR			"%{_libdir}/%{name}/"
+#define DEFAULTPATHS_LOG_DIR			"%{_localstatedir}/log/%{name}/"
 #define DEFAULTPATHS_PID_DIR			"%{_localstatedir}/run/"
-#define DEFAULTPATHS_MOVIES_DIR			"%{_localstatedir}/dss/movies/"
+#define DEFAULTPATHS_MOVIES_DIR			"%{_localstatedir}/lib/%{name}/movies/"
 EOF
 
 %build
@@ -146,9 +153,66 @@ rm -rf $RPM_BUILD_ROOT
 ./DSS_MakeRoot \
 	$RPM_BUILD_ROOT
 
+# Create our default admin user and remove Apple's
+# Default login is root/pld -- please change it!
+qtpasswd="\
+$RPM_BUILD_ROOT%{_bindir}/qtpasswd \
+-f $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/qtusers
+-g $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/qtgroups"
+$qtpasswd root -p pld -A admin
+$qtpasswd -F -d 'aGFja21l'
+
+mv $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/relayconfig.xml{-Sample,}
+rm $RPM_BUILD_ROOT%{_sysconfdir}/%{name}/streamingserver.xml-sample
+
+rm $RPM_BUILD_ROOT/var/lib/%{name}/3rdPartyAcknowledgements.rtf
+rm $RPM_BUILD_ROOT/var/lib/%{name}/readme.txt
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(644,root,root,755)
 %doc APPLE_LICENSE ReleaseNotes.txt
+%doc Documentation/3rdPartyAcknowledgements.rtf
+%doc Documentation/AboutQTFileTools.html
+%doc Documentation/AboutTheSource.html
+%doc Documentation/admin-protocol-README.txt
+%doc Documentation/CachingProxyProtocol-README.txt
+%doc Documentation/DevNotes.html
+%doc Documentation/draft-serenyi-avt-rtp-meta-00.txt
+%doc Documentation/DSS_QT_Logo_License.pdf
+%doc Documentation/License.rtf
+%doc Documentation/QTSSAPIDocs.pdf
+%doc Documentation/ReadMe.rtf
+%doc Documentation/readme.txt
+%doc Documentation/ReliableRTP_WhitePaper.rtf
+%doc Documentation/RTSP_Over_HTTP.pdf
+
+%dir %{_sysconfdir}/%{name}
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/qtgroups
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/qtusers
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/relayconfig.xml
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingloadtool.conf
+%config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingserver.xml
+
+%attr(755,root,root) %{_bindir}/MP3Broadcaster
+%attr(755,root,root) %{_bindir}/PlaylistBroadcaster
+%attr(755,root,root) %{_bindir}/StreamingLoadTool
+%attr(755,root,root) %{_bindir}/createuserstreamingdir
+%attr(755,root,root) %{_bindir}/qtpasswd
+
+%attr(755,root,root) %{_sbindir}/DarwinStreamingServer
+%attr(755,root,root) %{_sbindir}/streamingadminserver.pl
+
+%dir %{_libdir}/%{name}
+%attr(755,root,root) %{_libdir}/%{name}/QTSSHomeDirectoryModule
+%attr(755,root,root) %{_libdir}/%{name}/QTSSRefMovieModule
+
+%dir /var/lib/%{name}
+
+# sample movies
+/var/lib/%{name}/movies
+
+# admin html (subpackage?)
+/var/lib/%{name}/AdminHtml
