@@ -5,13 +5,14 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.11
+Release:	0.12
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
 # Source0-md5:	ca676691db8417d05121699c0ca3d549
 Source1:	%{name}.init
-Source2:	README.utils
+Source2:	%{name}-admin.init
+Source3:	README.utils
 Patch0:		%{name}.patch
 Patch1:		%{name}-x86_64.patch
 Patch2:		optflags.patch
@@ -100,7 +101,7 @@ Przykładowe pliki do Darwin Streaming Servera.
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
-cp -p %{SOURCE2} .
+cp -p %{SOURCE3} .
 
 # patch streamingadminserver.pl
 %{__sed} -i.bak -e  '
@@ -155,6 +156,7 @@ install -d $RPM_BUILD_ROOT{/etc/rc.d/init.d,/var/lib/%{name},%{_mandir}/man{1,8}
 	$RPM_BUILD_ROOT
 
 install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+install -p %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}-admin
 
 # avoid extension
 mv $RPM_BUILD_ROOT%{_sbindir}/streamingadminserver{.pl,}
@@ -214,7 +216,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %post
 /sbin/chkconfig --add %{name}
+/sbin/chkconfig --add %{name}-admin
 %service %{name} restart
+%service %{name}-admin restart
 
 if [ "$1" = "1" ]; then
 	%banner %{name} -e <<-EOF
@@ -229,7 +233,9 @@ fi
 %preun
 if [ "$1" = "0" ]; then
 	%service -q %{name} stop
+	%service -q %{name}-admin stop
 	/sbin/chkconfig --del %{name}
+	/sbin/chkconfig --del %{name}-admin
 fi
 
 %postun
@@ -266,6 +272,7 @@ fi
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingadminserver.pem
 
 %attr(754,root,root) /etc/rc.d/init.d/dss
+%attr(754,root,root) /etc/rc.d/init.d/dss-admin
 %attr(755,root,root) %{_bindir}/MP3Broadcaster
 %attr(755,root,root) %{_bindir}/PlaylistBroadcaster
 %attr(755,root,root) %{_bindir}/StreamingLoadTool
