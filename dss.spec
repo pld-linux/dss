@@ -1,7 +1,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.2
+Release:	0.3
 License:	Apple Public Source License
 Group:		Applications
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -10,7 +10,11 @@ Patch0:		%{name}.patch
 Patch1:		%{name}-x86_64.patch
 Patch2:		optflags.patch
 Patch3:		compile.patch
+Source1:	%{name}.init
 URL:		http://dss.macosforge.org/
+BuildRequires:	rpmbuild(macros) >= 1.228
+Requires(post,preun):	/sbin/chkconfig
+Requires:	rc-scripts
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
 
 %description
@@ -110,7 +114,7 @@ Sample files for the Darwin Streaming Server.
 	s|/''usr/local/movies|%{_localstatedir}/lib/%{name}/movies|g
 	s|/''usr/local/sbin/StreamingServerModules|%{_libdir}/%{name}/|g
 	s|/''usr/local/|%{_prefix}/|g
-	s|/etc/streaming|%{_sysconfdir}/%{name}|g
+	s|/''etc/streaming|%{_sysconfdir}/%{name}|g
 	s|/var/streaming/logs/|%{_localstatedir}/log/%{name}/|g
 	s|/var/streaming/|%{_localstatedir}/lib/%{name}/|g
 '	DSS_MakeRoot streamingserver.xml-POSIX \
@@ -150,8 +154,11 @@ jobs=$(echo %{_smp_mflags} | cut -dj -f2)
 
 %install
 rm -rf $RPM_BUILD_ROOT
+install -d $RPM_BUILD_ROOT/etc/rc.d/init.d
 ./DSS_MakeRoot \
 	$RPM_BUILD_ROOT
+
+install -p %{SOURCE1} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
 
 # Create our default admin user and remove Apple's
 # Default login is root/pld -- please change it!
@@ -170,6 +177,16 @@ rm $RPM_BUILD_ROOT/var/lib/%{name}/readme.txt
 
 %clean
 rm -rf $RPM_BUILD_ROOT
+
+%post
+/sbin/chkconfig --add %{name}
+%service %{name} restart
+
+%preun
+if [ "$1" = "0" ]; then
+	%service -q %{name} stop
+	/sbin/chkconfig --del %{name}
+fi
 
 %files
 %defattr(644,root,root,755)
@@ -196,6 +213,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingloadtool.conf
 %config(noreplace) %verify(not md5 mtime size) %{_sysconfdir}/%{name}/streamingserver.xml
 
+%attr(754,root,root) /etc/rc.d/init.d/dss
 %attr(755,root,root) %{_bindir}/MP3Broadcaster
 %attr(755,root,root) %{_bindir}/PlaylistBroadcaster
 %attr(755,root,root) %{_bindir}/StreamingLoadTool

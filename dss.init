@@ -1,0 +1,99 @@
+#!/bin/sh
+#
+# dss           Start/Stop MPEG-4 streaming server
+#
+# chkconfig:    345 13 87
+#
+# description:  An MPEG-4 video and audio streaming server. \
+#               Enable this if you wish to run an internet TV station.
+#
+# processname:  DarwinStreamingServer
+# config:
+# pidfile:		DarwinStreamingServer.pid
+#
+# $Id$
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+# Get network config
+. /etc/sysconfig/network
+
+# Check that networking is up.
+if is_yes "${NETWORKING}"; then
+	if [ ! -f /var/lock/subsys/network -a "$1" != stop -a "$1" != status ]; then
+		msg_network_down "Darwin Streaming Server"
+		exit 1
+	fi
+else
+	exit 0
+fi
+
+# Get service config - may override defaults
+[ -f /etc/sysconfig/dss ] && . /etc/sysconfig/dss
+
+start() {
+	# Check if the service is already running?
+	if [ -f /var/lock/subsys/dss ]; then
+		msg_already_running "Darwin Streaming Server"
+		return
+	fi
+
+	msg_starting "Darwin Streaming Server"
+	daemon /usr/sbin/DarwinStreamingServer
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/dss
+}
+
+stop() {
+	if [ ! -f /var/lock/subsys/dss ]; then
+		msg_not_running "Darwin Streaming Server"
+		return
+	fi
+
+	# Stop daemons.
+	msg_stopping "Darwin Streaming Server"
+	killproc --pidfile /var/run/DarwinStreamingServer.pid DarwinStreamingServer
+	rm -f /var/lock/subsys/dss
+}
+
+condrestart() {
+	if [ ! -f /var/lock/subsys/dss ]; then
+		msg_not_running "Darwin Streaming Server"
+		RETVAL=$1
+		return
+	fi
+
+	stop
+	start
+}
+
+RETVAL=0
+# See how we were called.
+case "$1" in
+  start)
+	start
+	;;
+  stop)
+	stop
+	;;
+  restart)
+	stop
+	start
+	;;
+  try-restart)
+	condrestart 0
+	;;
+  force-reload)
+	condrestart 7
+	;;
+  status)
+	status --pidfile /var/run/DarwinStreamingServer.pid dss DarwinStreamingServer
+	RETVAL=$?
+	;;
+  *)
+	msg_usage "$0 {start|stop|restart|try-restart|force-reload|status}"
+	exit 3
+esac
+
+exit $RETVAL
