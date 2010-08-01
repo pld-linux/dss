@@ -1,0 +1,92 @@
+--- DarwinStreamingSrvr6.0.3-Source/Buildit~	2010-08-01 15:43:58.000000000 +0300
++++ DarwinStreamingSrvr6.0.3-Source/Buildit	2010-08-01 15:52:52.789829857 +0300
+@@ -66,10 +66,10 @@
+ 
+ 	Linux.ppc)
+         	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=gcc
+-		CCOMP=gcc
+-		LINKER='gcc'
+- 		MAKE=make
++ 		CPLUS=${CXX:-gcc}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-gcc}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linuxppc__ -pipe"
+         	INCLUDE_FLAG="-include"
+@@ -90,10 +90,10 @@
+ 	Linux.i586 | \
+ 	Linux.i686)
+ 	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=gcc
+-		CCOMP=gcc
+-		LINKER='gcc'
+- 		MAKE=make
++ 		CPLUS=${CXX:-gcc}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-gcc}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe"
+ 		INCLUDE_FLAG="-include"
+@@ -111,10 +111,10 @@
+ 
+         Linux.x86_64)
+         	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=gcc
+-		CCOMP=gcc
+-		LINKER='gcc'
+- 		MAKE=make
++ 		CPLUS=${CXX:-gcc}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-gcc}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe -fPIC"
+ 		INCLUDE_FLAG="-include"
+@@ -132,10 +132,10 @@
+ 
+ 	Linux.mips)
+ 	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=gcc
+-		CCOMP=gcc
+-		LINKER='egcs'
+- 		MAKE=make
++ 		CPLUS=${CXX:-gcc}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-egcs}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS="-D_REENTRANT -D__linux__ -Wno-multichar -pipe"
+ 		INCLUDE_FLAG="-include"
+@@ -153,10 +153,10 @@
+ 
+ 	FreeBSD.i386)
+         	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=gcc
+-		CCOMP=gcc
+-		LINKER="gcc"
+- 		MAKE=make
++ 		CPLUS=${CXX:-gcc}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-gcc}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS=
+ 		INCLUDE_FLAG="-include"
+@@ -171,10 +171,10 @@
+ #	SunOS.sun4u)
+ 	SunOS.*)
+ 	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
+-		CPLUS=g++
+-		CCOMP=gcc
+-		LINKER="g++"
+- 		MAKE=make
++ 		CPLUS=${CXX:-g++}
++ 		CCOMP=${CC:-gcc}
++ 		LINKER=${CC:-g++}
++  		MAKE=${MAKE:-make}
+  		
+ 		COMPILER_FLAGS="-D__solaris__ -D_REENTRANT -DFD_SETSIZE=65536 -L/usr/local/lib -R/usr/local/lib"
+ 		INCLUDE_FLAG="-include"

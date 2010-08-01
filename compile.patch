@@ -1,0 +1,11 @@
+--- DarwinStreamingSrvr6.0.3-Source/./RTCPUtilitiesLib/RTCPAPPNADUPacket.h~	2008-05-06 02:28:59.000000000 +0300
++++ DarwinStreamingSrvr6.0.3-Source/./RTCPUtilitiesLib/RTCPAPPNADUPacket.h	2010-08-01 15:10:37.223423749 +0300
+@@ -202,7 +202,7 @@
+ public:
+     NaduList(): fNaduReportList(NULL), fcurrentIndexCount(0), fListSize(0) {};
+     ~NaduList() {
+-        for (int i = 0; i < fListSize; i++) {
++        for (unsigned int i = 0; i < fListSize; i++) {
+             if (fNaduReportList[i] != 0) {
+                 delete fNaduReportList[i];
+                 fNaduReportList[i] = 0;
