@@ -206,6 +206,7 @@ touch $RPM_BUILD_ROOT/var/log/%{name}/Error.log
 touch $RPM_BUILD_ROOT/var/log/%{name}/StreamingServer.log
 touch $RPM_BUILD_ROOT/var/log/%{name}/mp3_access.log
 touch $RPM_BUILD_ROOT/var/log/%{name}/server_status
+touch $RPM_BUILD_ROOT/var/log/%{name}/streamingadminserver.log
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -215,6 +216,12 @@ rm -rf $RPM_BUILD_ROOT
 %useradd -g qtss -d /tmp -u 148 -s /bin/false qtss
 
 %post
+for a in StreamingServer.log mp3_access.log server_status streamingadminserver.log ; do
+	log=/var/log/$a
+	if [ ! -f $log ]; then
+		install -o root -g dss -m 0660 /dev/null $log
+	fi
+fi
 /sbin/chkconfig --add %{name}
 /sbin/chkconfig --add %{name}-admin
 %service %{name} restart
@@ -299,6 +306,7 @@ fi
 %attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/StreamingServer.log
 %attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/mp3_access.log
 %attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/server_status
+%attr(644,qtss,qtss) %verify(not md5 mtime size) %ghost /var/log/%{name}/streamingadminserver.log
 
 # admin server (subpackage?)
 %dir %{_datadir}/%{name}
