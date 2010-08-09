@@ -141,10 +141,12 @@ cat > defaultPaths.h << 'EOF'
 EOF
 
 %build
-export RPM_OPT_FLAGS="%{rpmcflags}"
 export ARCH="%{_target_cpu}"
 export CC="%{__cc}"
+export CFLAGS="%{rpmcflags}"
 export CXX="%{__cxx}"
+export CXXFLAGS="%{rpmcxxflags}"
+export LDFLAGS="%{rpmldflags}"
 
 jobs=$(echo %{_smp_mflags} | cut -dj -f2)
 ./Buildit ${jobs:+--jobs=$jobs}

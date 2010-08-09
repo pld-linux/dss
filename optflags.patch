@@ -1,6 +1,6 @@
---- DarwinStreamingSrvr6.0.3-Source/Buildit~	2010-08-01 15:43:58.000000000 +0300
-+++ DarwinStreamingSrvr6.0.3-Source/Buildit	2010-08-01 15:52:52.789829857 +0300
-@@ -66,10 +66,10 @@
+--- DarwinStreamingSrvr6.0.3-Source/Buildit	2010-08-01 15:52:52.789829857 +0300
++++ DarwinStreamingSrvr6.0.3-Source/Buildit	2010-08-09 16:23:35.167262333 +0300
+@@ -66,15 +66,15 @@
  
  	Linux.ppc)
          	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -13,9 +13,17 @@
 + 		LINKER=${CC:-gcc}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linuxppc__ -pipe"
-         	INCLUDE_FLAG="-include"
-@@ -90,10 +90,10 @@
+-		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linuxppc__ -pipe"
+-        	INCLUDE_FLAG="-include"
++		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linuxppc__ -pipe $CFLAGS"
++       	INCLUDE_FLAG="-include"
+ 		
+-		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
++		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt $LDFLAGS"
+ 
+ 		SHARED=-shared
+ 		MODULE_LIBS=
+@@ -90,15 +90,15 @@
  	Linux.i586 | \
  	Linux.i686)
  	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -28,9 +36,16 @@
 + 		LINKER=${CC:-gcc}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe"
+-		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe"
++		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe $CFLAGS"
  		INCLUDE_FLAG="-include"
-@@ -111,10 +111,10 @@
+ 		
+-		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
++		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt $LDFLAGS"
+ 
+ 		SHARED=-shared
+ 		MODULE_LIBS=
+@@ -111,15 +111,15 @@
  
          Linux.x86_64)
          	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -43,9 +58,16 @@
 + 		LINKER=${CC:-gcc}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe -fPIC"
+-		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe -fPIC"
++		COMPILER_FLAGS="-D_REENTRANT -D__USE_POSIX -D__linux__ -pipe -fPIC $CFLAGS"
  		INCLUDE_FLAG="-include"
-@@ -132,10 +132,10 @@
+ 		
+-		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt"
++		CORE_LINK_LIBS="-lpthread -ldl -lstdc++ -lm -lcrypt $LDFLAGS"
+ 
+ 		SHARED=-shared
+ 		MODULE_LIBS=
+@@ -132,15 +132,15 @@
  
  	Linux.mips)
  	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -58,9 +80,16 @@
 + 		LINKER=${CC:-egcs}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS="-D_REENTRANT -D__linux__ -Wno-multichar -pipe"
+-		COMPILER_FLAGS="-D_REENTRANT -D__linux__ -Wno-multichar -pipe"
++		COMPILER_FLAGS="-D_REENTRANT -D__linux__ -Wno-multichar -pipe $CFLAGS"
  		INCLUDE_FLAG="-include"
-@@ -153,10 +153,10 @@
+ 		
+-		CORE_LINK_LIBS="-lpthread -ldl -lm -lcrypt"
++		CORE_LINK_LIBS="-lpthread -ldl -lm -lcrypt $LDFLAGS"
+ 
+ 		SHARED=-shared
+ 		MODULE_LIBS=
+@@ -153,15 +153,15 @@
  
  	FreeBSD.i386)
          	echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -73,9 +102,16 @@
 + 		LINKER=${CC:-gcc}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS=
+-		COMPILER_FLAGS=
++		COMPILER_FLAGS=$CFLAGS
  		INCLUDE_FLAG="-include"
-@@ -171,10 +171,10 @@
+ 		
+-		CORE_LINK_LIBS="-pthread -lm -lcrypt"
++		CORE_LINK_LIBS="-pthread -lm -lcrypt $LDFLAGS"
+ 
+ 		SHARED=-shared
+ 		MODULE_LIBS="-lgcc -lstdc++"
+@@ -171,15 +171,15 @@
  #	SunOS.sun4u)
  	SunOS.*)
  	        echo "Configuring for the "$OSNAME" "$HARDWARENAME" platform"
@@ -88,5 +124,12 @@
 + 		LINKER=${CC:-g++}
 +  		MAKE=${MAKE:-make}
   		
- 		COMPILER_FLAGS="-D__solaris__ -D_REENTRANT -DFD_SETSIZE=65536 -L/usr/local/lib -R/usr/local/lib"
+-		COMPILER_FLAGS="-D__solaris__ -D_REENTRANT -DFD_SETSIZE=65536 -L/usr/local/lib -R/usr/local/lib"
++		COMPILER_FLAGS="-D__solaris__ -D_REENTRANT -DFD_SETSIZE=65536 -L/usr/local/lib -R/usr/local/lib $CFLAGS"
  		INCLUDE_FLAG="-include"
+ 
+-		CORE_LINK_LIBS="-lpthread -ldl -lsocket -lnsl -lresolv -lm -lcrypt -lstdc++"
++		CORE_LINK_LIBS="-lpthread -ldl -lsocket -lnsl -lresolv -lm -lcrypt -lstdc++ $LDFLAGS"
+ 
+ 		SHARED=-G
+ 		MODULE_LIBS=
