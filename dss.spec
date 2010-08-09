@@ -5,7 +5,7 @@
 Summary:	Darwin Streaming Server
 Name:		dss
 Version:	6.0.3
-Release:	0.12
+Release:	0.15
 License:	Apple Public Source License
 Group:		Networking/Daemons
 Source0:	http://dss.macosforge.org/downloads/DarwinStreamingSrvr%{version}-Source.tar
@@ -216,12 +216,12 @@ rm -rf $RPM_BUILD_ROOT
 %useradd -g qtss -d /tmp -u 148 -s /bin/false qtss
 
 %post
-for a in StreamingServer.log mp3_access.log server_status streamingadminserver.log ; do
-	log=/var/log/$a
+for a in StreamingServer.log mp3_access.log server_status streamingadminserver.log; do
+	log=/var/log/%{name}/$a
 	if [ ! -f $log ]; then
-		install -o root -g dss -m 0660 /dev/null $log
+		install -o root -g qtss -m 0660 /dev/null $log
 	fi
-fi
+done
 /sbin/chkconfig --add %{name}
 /sbin/chkconfig --add %{name}-admin
 %service %{name} restart
