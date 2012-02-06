@@ -7,7 +7,6 @@
 # description: Web admin interface for the MPEG-4 video and audio streaming server.
 #
 # processname: streamingadminserver
-# pidfile:
 #
 # $Id$
 
