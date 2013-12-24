@@ -1,0 +1,13 @@
+--- DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/StringFormatter.h~	2008-05-06 02:28:59.000000000 +0300
++++ DarwinStreamingSrvr6.0.3-Source/CommonUtilitiesLib/StringFormatter.h	2010-08-09 16:45:23.066298834 +0300
+@@ -71,8 +71,8 @@
+         //Object does no bounds checking on the buffer. That is your responsibility!
+         //Put truncates to the buffer size
+         void        Put(const SInt32 num);
+-        void        Put(char* buffer, UInt32 bufferSize);
+-        void        Put(char* str)      { Put(str, strlen(str)); }
++        void        Put(const char* buffer, UInt32 bufferSize);
++        void        Put(const char* str)      { Put(str, strlen(str)); }
+         void        Put(const StrPtrLen &str) { Put(str.Ptr, str.Len); }
+         void        PutSpace()          { PutChar(' '); }
+         void        PutEOL()            {  Put(sEOL, sEOLLen); }

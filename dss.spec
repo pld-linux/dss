@@ -16,6 +16,7 @@ Patch0:		%{name}.patch
 Patch1:		%{name}-x86_64.patch
 Patch2:		optflags.patch
 Patch3:		compile.patch
+Patch4:		gcc43.patch
 URL:		http://dss.macosforge.org/
 BuildRequires:	libstdc++-devel
 BuildRequires:	rpm-perlprov >= 4.1-13
@@ -34,6 +35,8 @@ Obsoletes:	DSS
 Obsoletes:	dstreamserv
 Obsoletes:	dstreamsrv
 BuildRoot:	%{tmpdir}/%{name}-%{version}-root-%(id -u -n)
+
+#define		specflags	-Werror -Wno-write-strings
 
 %description
 Darwin Streaming Server lets you stream digital video on the Internet
@@ -100,6 +103,7 @@ Przykładowe pliki do Darwin Streaming Servera.
 %patch1 -p1
 %patch2 -p1
 %patch3 -p1
+#%patch4 -p1
 cp -p %{SOURCE3} .
 
 # patch streamingadminserver.pl
@@ -138,6 +142,9 @@ cat > defaultPaths.h << 'EOF'
 #define DEFAULTPATHS_PID_DIR			"/var/run/"
 #define DEFAULTPATHS_MOVIES_DIR			"/var/lib/%{name}/movies/"
 EOF
+
+#%undos -f cpp
+#find -name '*.cpp' | xargs sed -i -re 's/char\s*\*\s*(\w+)\s*= "/const char* \1 = "/g'
 
 %build
 export ARCH="%{_target_cpu}"
