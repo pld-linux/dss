@@ -1,6 +1,5 @@
 # TODO
 # - merge dstreamserv.spec
-%include    /usr/lib/rpm/macros.perl
 
 Summary:	Darwin Streaming Server
 Name:		dss
